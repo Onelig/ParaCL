@@ -6,19 +6,18 @@
 
 enum class TokenType
 {
-	OP_PLUS,		// +
-	OP_MINUS,		// -
-	OP_MULT,		// *
-	OP_DIV,			// /
-	OP_LT,			// <
-	OP_LTEQ,		// <=
-	OP_GT,			// >
-	OP_GTEQ,		// >=
-	OP_EQUAL,		// == 
-	OP_NEQUAL,		// !=
-	OP_SET,			// =
+	OP_PLUS,		// +	4
+	OP_MINUS,		// -	4
+	OP_MULT,		// *	5
+	OP_DIV,			// /	5
+	OP_LT,			// <	3
+	OP_LTEQ,		// <=	3
+	OP_GT,			// >	3
+	OP_GTEQ,		// >=	3
+	OP_EQUAL,		// ==	2
+	OP_NEQUAL,		// !=	2
 
-	UOPER_NOT,		// !
+	OP_SET,			// =	1
 
 	KEYWORD_WHILE,
 	KEYWORD_IF,
@@ -34,10 +33,21 @@ enum class TokenType
 	NUMBER
 };
 
+enum class Priority
+{
+	NONE,	// 0
+	MIN,	// 1
+	LOW,	// 2
+	MED,	// 3
+	AVER,	// 4	
+	MAX,	// 5
+};
+
 struct Token
 {
 	std::string value;
 	TokenType type;
+	Priority priority = Priority::NONE;
 };
 
 // std::stoi !! 
@@ -45,16 +55,16 @@ class Lexer
 {
 private:
 	std::vector<Token> tokens;
-	std::string_view code;
+	std::string code;
 	size_t code_lenght;
 
 private: // helpful methods
-	void strTokenize(size_t i);
-	void intTokenize(size_t i);
+	void strTokenize(size_t& i);
+	void intTokenize(size_t& i);
 
 public:
 	explicit Lexer(std::string_view code);
 	void tokenize();
 
-	const std::vector<Token>& gettokes() &;
+	const std::vector<Token>& gettokens() &;
 };
