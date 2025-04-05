@@ -30,7 +30,9 @@ enum class TokenType
 	ENDCOLOM,		// ;
 
 	VAR,
-	NUMBER
+	NUMBER,
+
+	NONE
 };
 
 enum class Priority
@@ -54,7 +56,7 @@ struct Token
 class Lexer
 {
 private:
-	std::vector<Token> tokens;
+	std::shared_ptr<std::vector<Token>> tokens;
 	std::string code;
 	size_t code_lenght;
 
@@ -63,8 +65,8 @@ private: // helpful methods
 	void intTokenize(size_t& i);
 
 public:
-	explicit Lexer(std::string_view code);
+	explicit Lexer(const std::string& code);
 	void tokenize();
 
-	const std::vector<Token>& gettokens() &;
+	std::shared_ptr<std::vector<Token>> gettokens();
 };
