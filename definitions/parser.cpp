@@ -382,12 +382,13 @@ std::unique_ptr<Node> Parser::factor()
 		return std::make_unique<GetNum>();
 	}
 
-	/*else if (peek().value().type == TokenType::OPEN_PAREN)
+	else if (peek().value().type == TokenType::OPEN_PAREN)
 	{
 		get();
-
+		std::unique_ptr<Node> expr = minprior_expr();
 		get();
-	}*/
+		return expr;
+	}
 
 	return nullptr;
 }
@@ -509,8 +510,9 @@ std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 	std::unique_ptr<Node> root_ = std::make_unique<Scope>();
 	std::unique_ptr<Node>* copy_root = &root_;
 
-	for (size_t i = begin; i < end; ++i, token_iter = tokens->begin() + i)
+	for (size_t i = begin; i < end; ++i)
 	{
+		token_iter = tokens->begin() + i;
 		std::unique_ptr<Node> child;
 
 		switch ((*tokens)[i].type)
@@ -526,7 +528,7 @@ std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 			++token_iter; // token_iter == '{'
 			if (token_iter->type != TokenType::LSCOPE)
 			{
-				throw std::invalid_argument("should be in scope { } ");
+				throw std::invalid_argument("should be in other scope { } ");
 			}
 			size_t sScope = NULL;
 			auto end_scope = std::find_if(token_iter, tokens->cend(), [&sScope](const Token& token) 
@@ -581,7 +583,6 @@ std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 				throw std::invalid_argument("scope was not closed");
 			}
 			size_t newI = i + (end_scope - token_iter) + 1;
-			++token_iter;
 			auto b = parse_(i + 2, newI);
 			child = std::make_unique<WhileKeyW>(std::move(b), std::move(cond));
 			i = newI;
