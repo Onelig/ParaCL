@@ -27,7 +27,24 @@ Scope::Scope(std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
 
 std::optional<int> Scope::execute() const
 {
-	return std::nullopt;
+	bool RHS_m = true;
+	const std::unique_ptr<Node>* LHS_t = &left,
+							   * RHS_t = &right;
+
+	while (*LHS_t && RHS_m)
+	{
+		(*LHS_t)->execute();
+		if (*RHS_t)
+		{
+			(*RHS_t)->execute();
+			LHS_t = &(*RHS_t)->left;
+			RHS_t = &(*RHS_t)->right;
+		}
+		else
+			RHS_m = false;
+	}
+
+	return std::make_optional<int>(true);
 }
 
 TokenType Scope::getType() const
@@ -94,15 +111,16 @@ std::optional<int> BinOper::execute() const
 		break;
 
 	case TokenType::OP_EQUAL:
-		result = LHS_int == LHS_int;
+		result = LHS_int == RHS_int;
 		break;
 
 	case TokenType::OP_NEQUAL:
-		result = LHS_int != LHS_int;
+		result = LHS_int != RHS_int;
 		break;
 	
 	case TokenType::OP_SET:
 		*LHS->execute_pointer() = RHS_int;
+		result = RHS_int;
 		break;
 	}
 
@@ -152,10 +170,10 @@ std::optional<int> IFKeyW::execute() const
 		std::unique_ptr<Node>* LHS_t = &LHS,
 							 * RHS_t = &RHS;
 
-		while (LHS_t && RHS_m)
+		while (*LHS_t && RHS_m)
 		{
 			(*LHS_t)->execute();
-			if (RHS_t)
+			if (*RHS_t)
 			{
 				(*RHS_t)->execute();
 				LHS_t = &(*RHS_t)->left;
@@ -185,8 +203,8 @@ std::optional<int> IFKeyW::execute() const
 //
 // ------------------- WhileKeyW -------------------
 //
-WhileKeyW::WhileKeyW(std::unique_ptr<Node>&& LHS, std::unique_ptr<Node>&& RHS, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-	: LHS(std::move(LHS)), RHS(std::move(RHS)), condition(std::move(condition)), Node(std::move(left), std::move(right))
+WhileKeyW::WhileKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+	: LHS(std::move(scope->left)), RHS(std::move(scope->right)), condition(std::move(condition)), Node(std::move(left), std::move(right))
 { }
 
 TokenType WhileKeyW::getType() const
@@ -205,10 +223,10 @@ std::optional<int> WhileKeyW::execute() const
 	{
 		bool RHS_m = true;
 
-		while (LHS_t && RHS_m)
+		while (*LHS_t && RHS_m)
 		{
 			(*LHS_t)->execute();
-			if (RHS_t)
+			if (*RHS_t)
 			{
 				(*RHS_t)->execute();
 				LHS_t = &(*RHS_t)->left;
@@ -242,7 +260,7 @@ std::optional<int> WhileKeyW::execute() const
 // ------------------- PrintKeyW -------------------
 //
 PrintKeyW::PrintKeyW(std::unique_ptr<Node>&& print_node, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-	: str_cout(print_node->execute().value()), Node(std::move(left), std::move(right))
+	: str_cout(std::move(print_node)), Node(std::move(left), std::move(right))
 { }
 
 TokenType PrintKeyW::getType() const
@@ -252,7 +270,7 @@ TokenType PrintKeyW::getType() const
 
 std::optional<int> PrintKeyW::execute() const
 {
-	std::cout << str_cout;
+	std::cout << str_cout->execute().value() << std::endl;
 
 	return std::make_optional<int>(1);
 }
@@ -318,10 +336,6 @@ std::optional<const Token> Parser::peek()
 
 std::optional<const Token> Parser::get()
 {
-	/*if (token_iter == it_end)
-	{
-		return std::nullopt;
-	}*/
 	return *(token_iter++);
 }
 
@@ -534,7 +548,7 @@ std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 			size_t newI = i + (end_scope - token_iter) + 1;
 			++token_iter;
 			auto b = parse_(i + 2, newI);
-			child = std::make_unique<IFKeyW>(std::move(b), std::move(cond));
+			child = std::make_unique<WhileKeyW>(std::move(b), std::move(cond));
 			i = newI;
 			break;
 		}
@@ -575,4 +589,9 @@ Parser::Parser(std::shared_ptr<std::vector<Token>> token_vec)
 void Parser::parse()
 {
 	root = parse_(NULL, tokens->size());
+}
+
+std::unique_ptr<Node> Parser::getAST()
+{
+	return std::move(root);
 }

@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 #include <lexer.hpp>
 #include <unordered_map>
@@ -76,7 +77,7 @@ private:
     std::unique_ptr<Node> condition;
    
 public:
-    WhileKeyW(std::unique_ptr<Node>&& LHS, std::unique_ptr<Node>&& RHS, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+    WhileKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
     TokenType getType() const override;
     std::optional<int> execute() const override;
 };
@@ -85,7 +86,7 @@ public:
 class PrintKeyW final : public Node
 {
 private:
-    int str_cout;
+    std::unique_ptr<Node> str_cout;
 
 public:
     PrintKeyW(std::unique_ptr<Node>&& print_node, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
@@ -139,7 +140,9 @@ private:
     std::unique_ptr<Node> minprior_expr();
     
     std::unique_ptr<Node> parse_(size_t begin, size_t end);
+
 public:
     Parser(std::shared_ptr<std::vector<Token>> token_vec);
     void parse();
+    std::unique_ptr<Node> getAST();
 };
