@@ -31,7 +31,7 @@ enum class TokenType
 
 	VAR,
 	NUMBER,
-
+	GETNUM,
 	NONE
 };
 

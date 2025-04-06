@@ -120,6 +120,18 @@ public:
 };
 
 
+class GetNum final : public Node
+{
+private:
+    int value;
+
+public:
+    GetNum(std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+    TokenType getType() const override;
+    std::optional<int> execute() const override;
+};
+
+
 
 class Parser
 {

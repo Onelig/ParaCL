@@ -32,7 +32,9 @@ void Lexer::intTokenize(size_t& i)
 	tokens->emplace_back(Token{ NUMBER, TokenType::NUMBER });
 }
 
-Lexer::Lexer(const std::string& code) : code(code), code_lenght(code.length()), tokens(std::make_shared<std::vector<Token>>()) { }
+Lexer::Lexer(const std::string& code) 
+	: code(code), code_lenght(code.length()), tokens(std::make_shared<std::vector<Token>>()) 
+{ }
 
 void Lexer::tokenize()
 {
@@ -113,12 +115,7 @@ void Lexer::tokenize()
 				break;
 
 			case '?':
-				int tvalue;
-				std::cin >> tvalue;
-				if (!std::cin.good())
-					throw std::invalid_argument("invalid input");
-
-				tokens->emplace_back(Token{ std::to_string(tvalue), TokenType::NUMBER });
+				tokens->emplace_back(Token{ "? ", TokenType::GETNUM });
 				break;
 				
 			case '(':

@@ -4,6 +4,10 @@
 
 std::unordered_map<std::string, int> VarInt;
 
+void ClearBuffer()
+{
+	std::cin.clear();
+}
 
 //
 // ------------------- Node -------------------
@@ -320,6 +324,31 @@ std::optional<int> Num::execute() const
 
 
 
+//
+// ------------------- GetNum -------------------
+//
+GetNum::GetNum(std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+	: Node(std::move(left), std::move(right))
+{ }
+
+TokenType GetNum::getType() const
+{
+	return TokenType::GETNUM;
+}
+
+std::optional<int> GetNum::execute() const
+{
+	int tvalue;
+	ClearBuffer();
+	std::cin >> tvalue;
+	if (!std::cin.good())
+		throw std::invalid_argument("invalid input");
+
+	return tvalue;
+}
+
+
+
 
 //
 // ------------------- Parser -------------------
@@ -346,6 +375,12 @@ std::unique_ptr<Node> Parser::factor()
 
 	else if (peek().value().type == TokenType::VAR)
 		return std::make_unique<VAR>(get().value().value);
+
+	else if (peek().value().type == TokenType::GETNUM)
+	{
+		get();
+		return std::make_unique<GetNum>();
+	}
 
 	/*else if (peek().value().type == TokenType::OPEN_PAREN)
 	{
@@ -474,7 +509,7 @@ std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 	std::unique_ptr<Node> root_ = std::make_unique<Scope>();
 	std::unique_ptr<Node>* copy_root = &root_;
 
-	for (size_t i = begin; i < end; ++i, ++token_iter)
+	for (size_t i = begin; i < end; ++i, token_iter = tokens->begin() + i)
 	{
 		std::unique_ptr<Node> child;
 
@@ -554,9 +589,9 @@ std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 		}
 
 		case TokenType::KEYWORD_PRINT:
-			it_end = std::find_if(token_iter, tokens->cend(), [](const Token& token) { return token.type == TokenType::ENDCOLOM; });
-			i += it_end - token_iter;
 			++token_iter;
+			it_end = std::find_if(token_iter, tokens->cend(), [](const Token& token) { return token.type == TokenType::ENDCOLOM; });
+			i += it_end - token_iter + 1;
 			child = std::make_unique<PrintKeyW>(lowprior_expr());
 			break;
 
