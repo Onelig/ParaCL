@@ -153,6 +153,8 @@ private:
     
     std::unique_ptr<Node> parse_(size_t begin, size_t end);
 
+    template<typename T>
+    std::unique_ptr<Node> IfWhileS(size_t& i);
 public:
     Parser(std::shared_ptr<std::vector<Token>> token_vec);
     void parse();

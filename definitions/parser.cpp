@@ -505,6 +505,40 @@ std::unique_ptr<Node> Parser::minprior_expr()
 	return (return_v ? std::move(return_v) : std::move(result));
 }
 
+template<typename T>
+std::unique_ptr<Node> Parser::IfWhileS(size_t& i)
+{
+	// condition from '(' to ')'
+	it_end = std::find_if(token_iter, tokens->cend(), [](const Token& token) { return token.type == TokenType::CLOSE_PAREN; });
+	i += it_end - token_iter;
+	token_iter += 2; // token_iter == after '('
+	std::unique_ptr<Node> cond = lowprior_expr();
+
+	++token_iter; // token_iter == '{'
+	if (token_iter->type != TokenType::LSCOPE)
+		throw std::invalid_argument("should be in other scope { } ");
+
+	size_t sScope = NULL;
+	auto end_scope = std::find_if(token_iter, tokens->cend(), [&sScope](const Token& token)
+		{
+			if (token.type == TokenType::LSCOPE)
+				++sScope;
+
+			else if (token.type == TokenType::RSCOPE)
+				--sScope;
+
+			return !sScope;
+		});
+
+	if (end_scope == tokens->cend())
+		throw std::invalid_argument("scope was not closed");
+
+	size_t newI = i + (end_scope - token_iter) + 1;
+	auto b = parse_(i + 2, newI);
+	i = newI;
+	return std::make_unique<T>(std::move(b), std::move(cond));
+}
+
 std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 {
 	std::unique_ptr<Node> root_ = std::make_unique<Scope>();
@@ -519,73 +553,12 @@ std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 		{
 		case TokenType::KEYWORD_IF:
 		{
-			// condition from '(' to ')'
-			it_end = std::find_if(token_iter, tokens->cend(), [](const Token& token) { return token.type == TokenType::CLOSE_PAREN; });
-			i += it_end - token_iter;
-			token_iter += 2; // token_iter == after '('
-			std::unique_ptr<Node> cond = lowprior_expr();
-
-			++token_iter; // token_iter == '{'
-			if (token_iter->type != TokenType::LSCOPE)
-			{
-				throw std::invalid_argument("should be in other scope { } ");
-			}
-			size_t sScope = NULL;
-			auto end_scope = std::find_if(token_iter, tokens->cend(), [&sScope](const Token& token) 
-				{
-					if (token.type == TokenType::LSCOPE)
-						++sScope;
-
-					else if (token.type == TokenType::RSCOPE)
-						--sScope;
-
-					return !sScope;
-				});
-
-			if (end_scope == tokens->cend())
-			{
-				throw std::invalid_argument("scope was not closed");
-			}
-			size_t newI = i + (end_scope - token_iter) + 1;
-			++token_iter;
-			auto b = parse_(i + 2, newI);
-			child = std::make_unique<IFKeyW>(std::move(b), std::move(cond));
-			i = newI;
+			child = IfWhileS<IFKeyW>(i);
 			break;
 		}
 		case TokenType::KEYWORD_WHILE:
 		{
-			// condition from '(' to ')'
-			it_end = std::find_if(token_iter, tokens->cend(), [](const Token& token) { return token.type == TokenType::CLOSE_PAREN; });
-			i += it_end - token_iter;
-			token_iter += 2; // token_iter == after '('
-			std::unique_ptr<Node> cond = lowprior_expr();
-
-			++token_iter; // token_iter == '{'
-			if (token_iter->type != TokenType::LSCOPE)
-			{
-				throw std::invalid_argument("should be in scope { } ");
-			}
-			size_t sScope = NULL;
-			auto end_scope = std::find_if(token_iter, tokens->cend(), [&sScope](const Token& token)
-				{
-					if (token.type == TokenType::LSCOPE)
-						++sScope;
-
-					else if (token.type == TokenType::RSCOPE)
-						--sScope;
-
-					return !sScope;
-				});
-
-			if (end_scope == tokens->cend())
-			{
-				throw std::invalid_argument("scope was not closed");
-			}
-			size_t newI = i + (end_scope - token_iter) + 1;
-			auto b = parse_(i + 2, newI);
-			child = std::make_unique<WhileKeyW>(std::move(b), std::move(cond));
-			i = newI;
+			child = IfWhileS<WhileKeyW>(i);
 			break;
 		}
 
@@ -605,6 +578,9 @@ std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 			break;
 		}
 		}
+
+		if (child == nullptr) 
+			throw std::invalid_argument("unknown symbol"); 
 
 		if ((*copy_root)->left)
 		{

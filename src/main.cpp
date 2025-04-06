@@ -22,8 +22,9 @@ int main()
 		if (std::cin.good())
 			code += line;
 	}
-	
+
 	Simulator simulator(code);
 	simulator.run();
+	
 	return 0;
 }
