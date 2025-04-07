@@ -12,19 +12,27 @@ void sighandler(int sig)
 
 int main()
 {
-	signal(SIGINT, &sighandler);
-	std::string code;
-	while (forever)
+	try
 	{
-		std::string line;
-		std::getline(std::cin, line);
+		signal(SIGINT, &sighandler);
+		std::string code;
+		while (forever)
+		{
+			std::string line;
+			std::getline(std::cin, line);
 
-		if (std::cin.good())
-			code += line;
+			if (std::cin.good())
+				code += line;
+		}
+
+		Simulator simulator(code);
+		simulator.run();
+
 	}
-
-	Simulator simulator(code);
-	simulator.run();
+	catch (const std::exception& e)
+	{
+		std::cout << e.what();
+	}
 	
 	return 0;
 }

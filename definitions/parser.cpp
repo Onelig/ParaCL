@@ -76,57 +76,61 @@ TokenType BinOper::getType() const
 
 std::optional<int> BinOper::execute() const
 {
-	int LHS_int = LHS->execute().value(),
-		RHS_int = RHS->execute().value();
-	int	result  = RHS_int;
+	int RHS_int = RHS->execute().value();
+	int	result = RHS_int;
 
-	switch (tokentype)
+	if (tokentype == TokenType::OP_SET)
 	{
-	case TokenType::OP_PLUS:
-		result = LHS_int + RHS_int;
-		break;
-
-	case TokenType::OP_MINUS:
-		result = LHS_int - RHS_int;
-		break;
-
-	case TokenType::OP_MULT:
-		result = LHS_int * RHS_int;
-		break;
-
-	case TokenType::OP_DIV:
-		result = LHS_int / RHS_int;
-		break;
-
-	case TokenType::OP_LT:
-		result = LHS_int < RHS_int;
-		break;
-
-	case TokenType::OP_LTEQ:
-		result = LHS_int <= RHS_int;
-		break;
-
-	case TokenType::OP_GT:
-		result = LHS_int > RHS_int;
-		break;
-
-	case TokenType::OP_GTEQ:
-		result = LHS_int >= RHS_int;
-		break;
-
-	case TokenType::OP_EQUAL:
-		result = LHS_int == RHS_int;
-		break;
-
-	case TokenType::OP_NEQUAL:
-		result = LHS_int != RHS_int;
-		break;
-	
-	case TokenType::OP_SET:
 		*LHS->execute_pointer() = RHS_int;
-		result = RHS_int;
-		break;
 	}
+	else
+	{
+		int LHS_int = LHS->execute().value();
+
+		switch (tokentype)
+		{
+		case TokenType::OP_PLUS:
+			result = LHS_int + RHS_int;
+			break;
+
+		case TokenType::OP_MINUS:
+			result = LHS_int - RHS_int;
+			break;
+
+		case TokenType::OP_MULT:
+			result = LHS_int * RHS_int;
+			break;
+
+		case TokenType::OP_DIV:
+			result = LHS_int / RHS_int;
+			break;
+
+		case TokenType::OP_LT:
+			result = LHS_int < RHS_int;
+			break;
+
+		case TokenType::OP_LTEQ:
+			result = LHS_int <= RHS_int;
+			break;
+
+		case TokenType::OP_GT:
+			result = LHS_int > RHS_int;
+			break;
+
+		case TokenType::OP_GTEQ:
+			result = LHS_int >= RHS_int;
+			break;
+
+		case TokenType::OP_EQUAL:
+			result = LHS_int == RHS_int;
+			break;
+
+		case TokenType::OP_NEQUAL:
+			result = LHS_int != RHS_int;
+			break;
+		}
+	}
+	
 
 	return std::make_optional<int>(result);
 }
@@ -285,7 +289,7 @@ std::optional<int> PrintKeyW::execute() const
 // ------------------- VAR -------------------
 //
 VAR::VAR(const std::string& name, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-	: value(VarInt[name]), Node(std::move(left), std::move(right))
+	: value(nullptr), name(name), Node(std::move(left), std::move(right))
 { }
 
 TokenType VAR::getType() const
@@ -295,12 +299,19 @@ TokenType VAR::getType() const
 
 std::optional<int> VAR::execute() const
 {
-	return std::make_optional<int>(value);
+	std::unordered_map<std::string, int>::iterator iter = VarInt.find(name);
+	if (iter != VarInt.end())
+		return iter->second;
+
+	return std::nullopt;
 }
 
 int* VAR::execute_pointer()
 {
-	return &value;
+	value = &VarInt[name];
+	*value = INT_MIN;
+
+	return value;
 }
 
 

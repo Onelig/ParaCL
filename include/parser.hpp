@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <optional>
 
-
 class Node
 {
 public:
@@ -98,7 +97,8 @@ public:
 class VAR final : public Node
 {
 private:
-    int& value;
+    std::string name;
+    mutable int* value;
 
 public:
     VAR(const std::string& name, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
