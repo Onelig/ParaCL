@@ -3,6 +3,8 @@
 #include <map>
 
 std::unordered_map<std::string, int> VarInt;
+std::unordered_set<TokenType> MaxPriorCont{ TokenType::OP_PLUS_SET, TokenType::OP_MINUS_SET, TokenType::OP_REM_SET, TokenType::OP_MULT_SET, TokenType::OP_DIV_SET, TokenType::OP_SET };
+
 
 void ClearBuffer()
 {
@@ -62,8 +64,8 @@ TokenType Scope::getType() const
 //
 BinOper::BinOper(TokenType oper, std::unique_ptr<Node>&& LHS, std::unique_ptr<Node>&& RHS, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
 	: tokentype(oper), LHS(std::move(LHS)), RHS(std::move(RHS)), Node(std::move(left), std::move(right))
-{ 
-	if (tokentype == TokenType::OP_SET && this->LHS->getType() != TokenType::VAR)
+{
+	if (MaxPriorCont.contains(tokentype) && this->LHS->getType() != TokenType::VAR)
 	{
 		throw std::invalid_argument("invalid LHS");
 	}
@@ -80,8 +82,22 @@ std::optional<int> BinOper::execute() const
 	int	result = RHS_int;
 
 	if (tokentype == TokenType::OP_SET)
-	{
 		*LHS->execute_pointer() = RHS_int;
+
+	else if (tokentype == TokenType::OP_PLUS_SET || tokentype == TokenType::OP_MINUS_SET ||
+			 tokentype == TokenType::OP_MULT_SET || tokentype == TokenType::OP_DIV_SET   || 
+			 tokentype == TokenType::OP_REM_SET)
+	{
+		int* ptr = LHS->execute_pointer();
+		int LHS_int = LHS->execute().value();
+		switch (tokentype)
+		{
+		case TokenType::OP_PLUS_SET: *ptr += RHS_int; break;
+		case TokenType::OP_MINUS_SET: *ptr -= RHS_int; break;
+		case TokenType::OP_REM_SET: *ptr %= RHS_int; break;
+		case TokenType::OP_MULT_SET: *ptr *= RHS_int; break;
+		case TokenType::OP_DIV_SET: *ptr /= RHS_int; break;
+		}
 	}
 	else
 	{
@@ -105,6 +121,10 @@ std::optional<int> BinOper::execute() const
 			result = LHS_int / RHS_int;
 			break;
 
+		case TokenType::OP_REM:
+			result = LHS_int % RHS_int;
+			break;
+
 		case TokenType::OP_LT:
 			result = LHS_int < RHS_int;
 			break;
@@ -116,7 +136,7 @@ std::optional<int> BinOper::execute() const
 		case TokenType::OP_GT:
 			result = LHS_int > RHS_int;
 			break;
-
+			
 		case TokenType::OP_GTEQ:
 			result = LHS_int >= RHS_int;
 			break;
@@ -308,8 +328,13 @@ std::optional<int> VAR::execute() const
 
 int* VAR::execute_pointer()
 {
+	bool isExist = true;
+	if (std::nullopt == this->execute())
+		isExist = false;
+
 	value = &VarInt[name];
-	*value = INT_MIN;
+	if (!isExist)
+		*value = INT_MIN;
 
 	return value;
 }
@@ -497,6 +522,7 @@ std::unique_ptr<Node> Parser::minprior_expr()
 {
 	std::unique_ptr<Node> result = lowprior_expr();
 	std::unique_ptr<Node> return_v = nullptr;
+	std::unique_ptr<Node>* result_v_p = &return_v;
 
 	while (peek().has_value() && (peek().value().priority == Priority::MIN))
 	{
@@ -504,12 +530,15 @@ std::unique_ptr<Node> Parser::minprior_expr()
 		
 		if (return_v)
 		{
-			return_v = std::make_unique<BinOper>(gettype, std::move(return_v), std::move(lowprior_expr()));
+			std::unique_ptr<Node> RHS_ = std::move(*(*result_v_p)->getLRHS().second);
+
+			(*(*result_v_p)->getLRHS().second) = std::make_unique<BinOper>(gettype, std::move(RHS_), std::move(lowprior_expr()));
+			result_v_p = &(*(*result_v_p)->getLRHS().second);
 		}
 		
 		else
 		{
-			return_v = std::make_unique<BinOper>(gettype, std::move(result), std::move(lowprior_expr()));
+			(*result_v_p) = std::make_unique<BinOper>(gettype, std::move(result), std::move(lowprior_expr()));
 		}
 	}
 

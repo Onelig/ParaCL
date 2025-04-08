@@ -3,7 +3,9 @@
 #include <string>
 #include <lexer.hpp>
 #include <unordered_map>
+#include <unordered_set>
 #include <optional>
+
 
 class Node
 {
@@ -16,6 +18,7 @@ public:
     virtual std::optional<int> execute() const = 0;
     virtual int* execute_pointer();
     virtual TokenType getType() const = 0;
+    virtual std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() { return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(nullptr,nullptr); }
     virtual ~Node() = default;
 };
 
@@ -31,10 +34,12 @@ class BinOper final : public Node
 {
 private:
     TokenType tokentype;
+
+public:
     std::unique_ptr<Node> LHS,
                           RHS;
 
-public:
+    std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() override { return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(&LHS, &RHS);}
     BinOper(TokenType oper, std::unique_ptr<Node>&& LHS, std::unique_ptr<Node>&& RHS, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
     TokenType getType() const override;
     std::optional<int> execute() const override;

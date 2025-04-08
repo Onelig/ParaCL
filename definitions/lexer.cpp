@@ -54,19 +54,53 @@ void Lexer::tokenize()
 			switch (code[i])
 			{
 			case '+':
-				tokens->emplace_back(Token{ "+", TokenType::OP_PLUS, Priority::AVER });
+				if (i + 1 < code_lenght && code[i + 1] == '=')
+				{
+					tokens->emplace_back(Token{ "+=", TokenType::OP_PLUS_SET, Priority::MIN });
+					++i;
+				}
+				else
+					tokens->emplace_back(Token{ "+", TokenType::OP_PLUS, Priority::AVER });
 				break;
 
 			case '-':
-				tokens->emplace_back(Token{ "-", TokenType::OP_MINUS, Priority::AVER });
+				if (i + 1 < code_lenght && code[i + 1] == '=')
+				{
+					tokens->emplace_back(Token{ "-=", TokenType::OP_MINUS_SET, Priority::MAX });
+					++i;
+				}
+				else
+					tokens->emplace_back(Token{ "-", TokenType::OP_MINUS, Priority::AVER });
 				break;
 				
 			case '*':
-				tokens->emplace_back(Token{ "*", TokenType::OP_MULT, Priority::MAX });
+				if (i + 1 < code_lenght && code[i + 1] == '=')
+				{
+					tokens->emplace_back(Token{ "*=", TokenType::OP_MULT_SET, Priority::MAX });
+					++i;
+				}
+				else
+					tokens->emplace_back(Token{ "*", TokenType::OP_MULT, Priority::MAX });
 				break;
 
 			case '/':
-				tokens->emplace_back(Token{ "/", TokenType::OP_DIV, Priority::MAX });
+				if (i + 1 < code_lenght && code[i + 1] == '=')
+				{
+					tokens->emplace_back(Token{ "/=", TokenType::OP_DIV_SET, Priority::MAX });
+					++i;
+				}
+				else
+					tokens->emplace_back(Token{ "/", TokenType::OP_DIV, Priority::MAX });
+				break;
+
+			case '%':
+				if (i + 1 < code_lenght && code[i + 1] == '=')
+				{
+					tokens->emplace_back(Token{ "%=", TokenType::OP_REM_SET, Priority::MAX });
+					++i;
+				}
+				else
+					tokens->emplace_back(Token{ "%", TokenType::OP_REM, Priority::MAX });
 				break;
 
 			case '<':

@@ -8,6 +8,7 @@ enum class TokenType
 {
 	OP_PLUS,		// +	4
 	OP_MINUS,		// -	4
+	OP_REM,			// %	5
 	OP_MULT,		// *	5
 	OP_DIV,			// /	5
 	OP_LT,			// <	3
@@ -17,6 +18,11 @@ enum class TokenType
 	OP_EQUAL,		// ==	2
 	OP_NEQUAL,		// !=	2
 
+	OP_PLUS_SET,	// =	1
+	OP_MINUS_SET,	// =	1
+	OP_REM_SET,		// =	1
+	OP_MULT_SET,	// =	1
+	OP_DIV_SET,		// =	1
 	OP_SET,			// =	1
 
 	KEYWORD_WHILE,
