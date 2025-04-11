@@ -40,7 +40,16 @@ void Lexer::tokenize()
 {
 	for (size_t i = 0; i < code_lenght; ++i)
 	{
-		if (code[i] == ' ' || code[i] == '\t' || code[i] == '\n')
+		if (code[i] == '/' && i + 1 < code_lenght && code[i + 1] == '/')
+		{
+			while (i < code_lenght && code[i] != '\n')
+			{
+				++i;
+				continue;
+			}
+		}
+
+		else if (code[i] == ' ' || code[i] == '\t' || code[i] == '\n')
 			continue;
 
 		else if (std::isalpha(code[i]))
@@ -59,6 +68,11 @@ void Lexer::tokenize()
 					tokens->emplace_back(Token{ "+=", TokenType::OP_PLUS_SET, Priority::MIN });
 					++i;
 				}
+				else if (i + 1 < code_lenght && code[i + 1] == '+')
+				{
+					tokens->emplace_back(Token{ "++", TokenType::UNOP_INC, Priority::OVER });
+					++i;
+				}
 				else
 					tokens->emplace_back(Token{ "+", TokenType::OP_PLUS, Priority::AVER });
 				break;
@@ -67,6 +81,11 @@ void Lexer::tokenize()
 				if (i + 1 < code_lenght && code[i + 1] == '=')
 				{
 					tokens->emplace_back(Token{ "-=", TokenType::OP_MINUS_SET, Priority::MAX });
+					++i;
+				}
+				else if (i + 1 < code_lenght && code[i + 1] == '-')
+				{
+					tokens->emplace_back(Token{ "--", TokenType::UNOP_DEC, Priority::OVER });
 					++i;
 				}
 				else
@@ -144,7 +163,7 @@ void Lexer::tokenize()
 				}
 				else
 				{
-					throw std::invalid_argument("invalid symb");
+					tokens->emplace_back(Token{ "!=", TokenType::UNOP_OPPNUM, Priority::OVER });
 				}
 				break;
 
@@ -167,6 +186,7 @@ void Lexer::tokenize()
 			case '}':
 				tokens->emplace_back(Token{ "}", TokenType::RSCOPE });
 				break;
+
 
 			case ';':
 				tokens->emplace_back(Token{ ";", TokenType::ENDCOLOM });

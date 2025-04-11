@@ -65,7 +65,7 @@ TokenType Scope::getType() const
 BinOper::BinOper(TokenType oper, std::unique_ptr<Node>&& LHS, std::unique_ptr<Node>&& RHS, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
 	: tokentype(oper), LHS(std::move(LHS)), RHS(std::move(RHS)), Node(std::move(left), std::move(right))
 {
-	if (MaxPriorCont.contains(tokentype) && this->LHS->getType() != TokenType::VAR)
+	if (MaxPriorCont.contains(tokentype) && (this->LHS->getType() != TokenType::VAR && this->LHS->getLRHS().first == nullptr))
 	{
 		throw std::invalid_argument("invalid LHS");
 	}
@@ -160,8 +160,8 @@ std::optional<int> BinOper::execute() const
 //
 // ------------------- UnOper -------------------
 //
-UnOper::UnOper(TokenType unoper, std::unique_ptr<Node>&& element, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-	: tokentype(unoper), element(std::move(element)), Node(std::move(left), std::move(right))
+UnOper::UnOper(TokenType unoper, std::unique_ptr<Node>&& element, bool rElem, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+	: tokentype(unoper), rElem(rElem), element(std::move(element)), Node(std::move(left), std::move(right))
 { }
 
 TokenType UnOper::getType() const
@@ -171,9 +171,57 @@ TokenType UnOper::getType() const
 
 std::optional<int> UnOper::execute() const
 {
-	return std::make_optional<int>(!element->execute());
+	int result = NULL;
+
+	switch (tokentype)
+	{
+	case TokenType::UNOP_OPPNUM:
+		result = !(element->execute().value());
+		break;
+	case TokenType::UNOP_INC:
+		if (element->getType() == TokenType::NUMBER)
+		{
+			throw std::invalid_argument("inv arg");
+		}
+
+		if (rElem)
+		{
+			*element->execute_pointer() += 1;
+			result = element->execute().value();
+		}
+		else
+		{
+			result = element->execute().value();
+			*element->execute_pointer() += 1;
+		}
+		break;
+	case TokenType::UNOP_DEC:
+		if (element->getType() == TokenType::NUMBER)
+		{
+			throw std::invalid_argument("inv arg");
+		}
+
+		if (rElem)
+		{
+			*element->execute_pointer() -= 1;
+			result = element->execute().value();
+		}
+		else
+		{
+			result = element->execute().value();
+			*element->execute_pointer() -= 1;
+		}
+		break;
+	}
+
+	return std::make_optional<int>(result);
 }
 
+int* UnOper::execute_pointer()
+{
+	//this->execute();
+	return element->execute_pointer();
+}
 
 
 //
@@ -404,13 +452,69 @@ std::optional<const Token> Parser::get()
 	return *(token_iter++);
 }
 
+std::unique_ptr<Node> Parser::ifOverOper()
+{
+	if (peek().value().priority == Priority::OVER)
+	{
+		std::unique_ptr<Node> nd;
+		std::unique_ptr<Node>* nd_c = &nd;
+		while (peek() && peek().value().priority == Priority::OVER)
+		{
+			TokenType type = get().value().type;
+
+			if (*nd_c)
+			{
+				std::unique_ptr<Node> element = std::move(*(*nd_c)->getLRHS().first);
+				*(*nd_c)->getLRHS().first = std::make_unique<UnOper>(type, std::move(element), true);
+				nd_c = (*nd_c)->getLRHS().first;
+			}
+			else
+			{
+				(*nd_c) = std::make_unique<UnOper>(type, nullptr, true);
+			}
+		}
+
+		if (peek().value().type == TokenType::VAR)
+		{
+			*(*nd_c)->getLRHS().first = std::make_unique<VAR>(peek().value().value);
+
+			get();
+		}
+		else if (peek().value().type == TokenType::NUMBER)
+		{
+			*(*nd_c)->getLRHS().first = std::make_unique<Num>(std::stoi(peek().value().value));
+
+			get();
+		}
+		else
+		{
+			*(*nd_c)->getLRHS().first = factor();
+
+			get();
+		}
+
+		return nd;
+	}
+
+	return nullptr;
+}
+
 std::unique_ptr<Node> Parser::factor()
 {
 	if (peek().value().type == TokenType::NUMBER)
 		return std::make_unique<Num>(std::stoi(get().value().value));
 
 	else if (peek().value().type == TokenType::VAR)
-		return std::make_unique<VAR>(get().value().value);
+	{
+		std::unique_ptr<Node> nd = std::make_unique<VAR>(get().value().value);
+
+		if (peek() && (peek().value().type == TokenType::UNOP_DEC || peek().value().type == TokenType::UNOP_INC))
+		{
+			nd = std::make_unique<UnOper>(peek().value().type, std::move(nd), false);
+			get();
+		}
+		return std::move(nd);
+	}
 
 	else if (peek().value().type == TokenType::GETNUM)
 	{
@@ -426,16 +530,15 @@ std::unique_ptr<Node> Parser::factor()
 		return expr;
 	}
 
-	return nullptr;
+	return ifOverOper();
 }
-
 
 std::unique_ptr<Node> Parser::maxprior_expr()
 {
 	std::unique_ptr<Node> result = factor();
 	std::unique_ptr<Node> return_v = nullptr;
 
-	while (peek().has_value() && (peek().value().priority == Priority::MAX))
+	while (peek() && (peek().value().priority == Priority::MAX))
 	{
 		TokenType gettype = get().value().type;
 
@@ -454,7 +557,7 @@ std::unique_ptr<Node> Parser::averprior_expr()
 	std::unique_ptr<Node> result = maxprior_expr();
 	std::unique_ptr<Node> return_v = nullptr;
 
-	while (peek().has_value() && (peek().value().priority == Priority::AVER))
+	while (peek() && (peek().value().priority == Priority::AVER))
 	{
 		TokenType gettype = get().value().type;
 
@@ -477,7 +580,7 @@ std::unique_ptr<Node> Parser::medprior_expr()
 	std::unique_ptr<Node> result = averprior_expr();
 	std::unique_ptr<Node> return_v = nullptr;
 
-	while (peek().has_value() && (peek().value().priority == Priority::MED))
+	while (peek() && (peek().value().priority == Priority::MED))
 	{
 		TokenType gettype = get().value().type;
 
@@ -500,7 +603,7 @@ std::unique_ptr<Node> Parser::lowprior_expr()
 	std::unique_ptr<Node> result = medprior_expr();
 	std::unique_ptr<Node> return_v = nullptr;
 
-	while (peek().has_value() && (peek().value().priority == Priority::LOW))
+	while (peek() && (peek().value().priority == Priority::LOW))
 	{
 		TokenType gettype = get().value().type;
 
@@ -524,11 +627,11 @@ std::unique_ptr<Node> Parser::minprior_expr()
 	std::unique_ptr<Node> return_v = nullptr;
 	std::unique_ptr<Node>* result_v_p = &return_v;
 
-	while (peek().has_value() && (peek().value().priority == Priority::MIN))
+	while (peek() && (peek().value().priority == Priority::MIN))
 	{
 		TokenType gettype = get().value().type;
 		
-		if (return_v)
+		if (*result_v_p)
 		{
 			std::unique_ptr<Node> RHS_ = std::move(*(*result_v_p)->getLRHS().second);
 

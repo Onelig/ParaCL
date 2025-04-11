@@ -22,7 +22,7 @@ int main()
 			std::getline(std::cin, line);
 
 			if (std::cin.good())
-				code += line;
+				code += line + '\n';
 		}
 
 		Simulator simulator(code);

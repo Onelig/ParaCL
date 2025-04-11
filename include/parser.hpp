@@ -51,11 +51,21 @@ class UnOper final : public Node
 private:
     TokenType tokentype;
     std::unique_ptr<Node> element;
+    bool rElem;
 
 public:
-    UnOper(TokenType unoper, std::unique_ptr<Node>&& element, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+    UnOper(TokenType unoper, std::unique_ptr<Node>&& element, bool rElem = true ,std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
     TokenType getType() const override;
     std::optional<int> execute() const override;
+    virtual std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() 
+    {
+        if (rElem)
+        {
+            return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(&element, nullptr);
+        }
+        return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(nullptr, &element);
+    }
+    virtual int* execute_pointer();
 };
 
 
@@ -148,8 +158,10 @@ private:
 
     std::optional<const Token> peek();
     std::optional<const Token> get();
+    std::unique_ptr<Node> ifOverOper();
     std::unique_ptr<Node> factor();
 
+    // std::unique_ptr<Node> overprior_expr();
     std::unique_ptr<Node> maxprior_expr();
     std::unique_ptr<Node> averprior_expr();
     std::unique_ptr<Node> medprior_expr();
