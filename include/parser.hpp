@@ -72,13 +72,15 @@ public:
 class IFKeyW final : public Node
 {
 private:
-    mutable std::unique_ptr<Node> LHS,
-                                  RHS;
+    mutable std::unique_ptr<Node> scope, else_;
     std::unique_ptr<Node> condition;
    
 public:
-    IFKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+    IFKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& else_ = nullptr, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
     TokenType getType() const override;
+    std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() override {
+        return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(&else_, nullptr);
+    }
     std::optional<int> execute() const override;
 };
 
@@ -86,8 +88,7 @@ public:
 class WhileKeyW final : public Node
 {
 private:
-    mutable std::unique_ptr<Node> LHS,
-                                  RHS;
+    mutable std::unique_ptr<Node> scope;
     std::unique_ptr<Node> condition;
    
 public:
@@ -130,6 +131,7 @@ private:
 
 public:
     Num(int value, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+    Num(const std::string& value, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
     TokenType getType() const override;
     std::optional<int> execute() const override;
 };
@@ -161,7 +163,6 @@ private:
     std::unique_ptr<Node> ifOverOper();
     std::unique_ptr<Node> factor();
 
-    // std::unique_ptr<Node> overprior_expr();
     std::unique_ptr<Node> maxprior_expr();
     std::unique_ptr<Node> averprior_expr();
     std::unique_ptr<Node> medprior_expr();
@@ -171,7 +172,7 @@ private:
     std::unique_ptr<Node> parse_(size_t begin, size_t end);
 
     template<typename T>
-    std::unique_ptr<Node> IfWhileS(size_t& i);
+    std::unique_ptr<Node> IfWhileS(size_t& i, bool SkipCond = false);
 public:
     Parser(std::shared_ptr<std::vector<Token>> token_vec);
     void parse();

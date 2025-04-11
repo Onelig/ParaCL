@@ -14,6 +14,9 @@ void Lexer::strTokenize(size_t& i)
 	else if (VAR_NAME == "if")
 		tokens->emplace_back(Token{ VAR_NAME, TokenType::KEYWORD_IF });
 
+	else if (VAR_NAME == "else")
+		tokens->emplace_back(Token{ VAR_NAME, TokenType::KEYWORD_ELSE });
+
 	else if (VAR_NAME == "print")
 		tokens->emplace_back(Token{ VAR_NAME, TokenType::KEYWORD_PRINT });
 

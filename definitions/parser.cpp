@@ -212,6 +212,10 @@ std::optional<int> UnOper::execute() const
 			*element->execute_pointer() -= 1;
 		}
 		break;
+		
+	case TokenType::UNOP_MINUS:
+		result = -element->execute().value();
+		break;
 	}
 
 	return std::make_optional<int>(result);
@@ -227,8 +231,8 @@ int* UnOper::execute_pointer()
 //
 // ------------------- IFKeyW -------------------
 //
-IFKeyW::IFKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-	: LHS(std::move(scope->left)), RHS(std::move(scope->right)), condition(std::move(condition)), Node(std::move(left), std::move(right))
+IFKeyW::IFKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& else_, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+	: scope(std::move(scope)), else_(std::move(else_)), condition(std::move(condition)), Node(std::move(left), std::move(right))
 { }
 
 TokenType IFKeyW::getType() const
@@ -242,22 +246,7 @@ std::optional<int> IFKeyW::execute() const
 	{
 		std::unordered_map<std::string, int> copyVarInt = VarInt;
 
-		bool RHS_m = true;
-		std::unique_ptr<Node>* LHS_t = &LHS,
-							 * RHS_t = &RHS;
-
-		while (*LHS_t && RHS_m)
-		{
-			(*LHS_t)->execute();
-			if (*RHS_t)
-			{
-				(*RHS_t)->execute();
-				LHS_t = &(*RHS_t)->left;
-				RHS_t = &(*RHS_t)->right;
-			}
-			else
-				RHS_m = false;
-		}
+		scope->execute();
 
 		for (auto& [str, value] : copyVarInt)
 		{
@@ -270,17 +259,20 @@ std::optional<int> IFKeyW::execute() const
 
 		VarInt = copyVarInt;
 	}
+	else if (else_)
+	{
+		else_->execute();
+	}
 
 	return std::nullopt;
 }
-
 
 
 //
 // ------------------- WhileKeyW -------------------
 //
 WhileKeyW::WhileKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-	: LHS(std::move(scope->left)), RHS(std::move(scope->right)), condition(std::move(condition)), Node(std::move(left), std::move(right))
+	: scope(std::move(scope)), condition(std::move(condition)), Node(std::move(left), std::move(right))
 { }
 
 TokenType WhileKeyW::getType() const
@@ -290,31 +282,9 @@ TokenType WhileKeyW::getType() const
 
 std::optional<int> WhileKeyW::execute() const
 {
-	std::unique_ptr<Node>* LHS_t = &LHS,
-						 * RHS_t = &RHS;
-
 	std::unordered_map<std::string, int> copyVarInt = VarInt;
 
-	while (condition->execute().value())
-	{
-		bool RHS_m = true;
-
-		while (*LHS_t && RHS_m)
-		{
-			(*LHS_t)->execute();
-			if (*RHS_t)
-			{
-				(*RHS_t)->execute();
-				LHS_t = &(*RHS_t)->left;
-				RHS_t = &(*RHS_t)->right;
-			}
-			else
-				RHS_m = false;
-		}
-
-		LHS_t = &LHS;
-		RHS_t = &RHS;
-	}
+	scope->execute();
 
 	for (auto& [str, value] : copyVarInt)
 	{
@@ -396,6 +366,10 @@ Num::Num(int value, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
 	: value(value), Node(std::move(left), std::move(right))
 { }
 
+Num::Num(const std::string& value, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+	: value(std::stoi(value)), Node(std::move(left), std::move(right))
+{ }
+
 TokenType Num::getType() const
 {
 	return TokenType::NUMBER;
@@ -454,10 +428,10 @@ std::optional<const Token> Parser::get()
 
 std::unique_ptr<Node> Parser::ifOverOper()
 {
+	std::unique_ptr<Node> nd = nullptr;
+	std::unique_ptr<Node>* nd_c = &nd;
 	if (peek().value().priority == Priority::OVER)
 	{
-		std::unique_ptr<Node> nd;
-		std::unique_ptr<Node>* nd_c = &nd;
 		while (peek() && peek().value().priority == Priority::OVER)
 		{
 			TokenType type = get().value().type;
@@ -473,7 +447,15 @@ std::unique_ptr<Node> Parser::ifOverOper()
 				(*nd_c) = std::make_unique<UnOper>(type, nullptr, true);
 			}
 		}
+	}
+	else if (peek().value().type == TokenType::OP_MINUS)
+	{
+		get();
+		nd = std::make_unique<UnOper>(TokenType::UNOP_MINUS, nullptr);
+	}
 
+	if (nd)
+	{
 		if (peek().value().type == TokenType::VAR)
 		{
 			*(*nd_c)->getLRHS().first = std::make_unique<VAR>(peek().value().value);
@@ -482,27 +464,21 @@ std::unique_ptr<Node> Parser::ifOverOper()
 		}
 		else if (peek().value().type == TokenType::NUMBER)
 		{
-			*(*nd_c)->getLRHS().first = std::make_unique<Num>(std::stoi(peek().value().value));
+			*(*nd_c)->getLRHS().first = std::make_unique<Num>(peek().value().value);
 
 			get();
 		}
 		else
-		{
 			*(*nd_c)->getLRHS().first = factor();
-
-			get();
-		}
-
-		return nd;
 	}
 
-	return nullptr;
+	return nd;
 }
 
 std::unique_ptr<Node> Parser::factor()
 {
 	if (peek().value().type == TokenType::NUMBER)
-		return std::make_unique<Num>(std::stoi(get().value().value));
+		return std::make_unique<Num>(get().value().value);
 
 	else if (peek().value().type == TokenType::VAR)
 	{
@@ -515,19 +491,18 @@ std::unique_ptr<Node> Parser::factor()
 		}
 		return std::move(nd);
 	}
-
-	else if (peek().value().type == TokenType::GETNUM)
-	{
-		get();
-		return std::make_unique<GetNum>();
-	}
-
 	else if (peek().value().type == TokenType::OPEN_PAREN)
 	{
 		get();
 		std::unique_ptr<Node> expr = minprior_expr();
 		get();
 		return expr;
+	}
+
+	else if (peek().value().type == TokenType::GETNUM)
+	{
+		get();
+		return std::make_unique<GetNum>();
 	}
 
 	return ifOverOper();
@@ -538,15 +513,11 @@ std::unique_ptr<Node> Parser::maxprior_expr()
 	std::unique_ptr<Node> result = factor();
 	std::unique_ptr<Node> return_v = nullptr;
 
-	while (peek() && (peek().value().priority == Priority::MAX))
+	while (peek().has_value() && (peek().value().priority == Priority::MAX))
 	{
 		TokenType gettype = get().value().type;
 
-		if (return_v)
-			return_v = std::make_unique<BinOper>(gettype, std::move(return_v), std::move(factor()));
-		
-		else
-			return_v = std::make_unique<BinOper>(gettype, std::move(result), std::move(factor()));
+		return_v = std::make_unique<BinOper>(gettype, std::move(return_v ? return_v : result), std::move(factor()));
 	}
 
 	return (return_v ? std::move(return_v) : std::move(result));
@@ -557,19 +528,11 @@ std::unique_ptr<Node> Parser::averprior_expr()
 	std::unique_ptr<Node> result = maxprior_expr();
 	std::unique_ptr<Node> return_v = nullptr;
 
-	while (peek() && (peek().value().priority == Priority::AVER))
+	while (peek().has_value() && (peek().value().priority == Priority::AVER))
 	{
 		TokenType gettype = get().value().type;
 
-		if (return_v)
-		{
-			return_v = std::make_unique<BinOper>(gettype, std::move(return_v), std::move(maxprior_expr()));
-		}
-
-		else
-		{
-			return_v = std::make_unique<BinOper>(gettype, std::move(result), std::move(maxprior_expr()));
-		}
+		return_v = std::make_unique<BinOper>(gettype, std::move(return_v ? return_v : result), std::move(maxprior_expr()));
 	}
 	
 	return (return_v ? std::move(return_v) : std::move(result));
@@ -580,19 +543,11 @@ std::unique_ptr<Node> Parser::medprior_expr()
 	std::unique_ptr<Node> result = averprior_expr();
 	std::unique_ptr<Node> return_v = nullptr;
 
-	while (peek() && (peek().value().priority == Priority::MED))
+	while (peek().has_value() && (peek().value().priority == Priority::MED))
 	{
 		TokenType gettype = get().value().type;
-
-		if (return_v)
-		{
-			return_v = std::make_unique<BinOper>(gettype, std::move(return_v), std::move(averprior_expr()));
-		}
-
-		else
-		{
-			return_v = std::make_unique<BinOper>(gettype, std::move(result), std::move(averprior_expr()));
-		}
+		
+		return_v = std::make_unique<BinOper>(gettype, std::move(return_v ? return_v : result), std::move(averprior_expr()));
 	}
 
 	return (return_v ? std::move(return_v) : std::move(result));
@@ -603,19 +558,11 @@ std::unique_ptr<Node> Parser::lowprior_expr()
 	std::unique_ptr<Node> result = medprior_expr();
 	std::unique_ptr<Node> return_v = nullptr;
 
-	while (peek() && (peek().value().priority == Priority::LOW))
+	while (peek().has_value() && (peek().value().priority == Priority::LOW))
 	{
 		TokenType gettype = get().value().type;
 
-		if (return_v)
-		{
-			return_v = std::make_unique<BinOper>(gettype, std::move(return_v), std::move(medprior_expr()));
-		}
-
-		else
-		{
-			return_v = std::make_unique<BinOper>(gettype, std::move(result), std::move(medprior_expr()));
-		}
+		return_v = std::make_unique<BinOper>(gettype, std::move(return_v ? return_v : result), std::move(medprior_expr()));
 	}
 
 	return (return_v ? std::move(return_v) : std::move(result));
@@ -627,7 +574,7 @@ std::unique_ptr<Node> Parser::minprior_expr()
 	std::unique_ptr<Node> return_v = nullptr;
 	std::unique_ptr<Node>* result_v_p = &return_v;
 
-	while (peek() && (peek().value().priority == Priority::MIN))
+	while (peek().has_value() && (peek().value().priority == Priority::MIN))
 	{
 		TokenType gettype = get().value().type;
 		
@@ -640,26 +587,31 @@ std::unique_ptr<Node> Parser::minprior_expr()
 		}
 		
 		else
-		{
 			(*result_v_p) = std::make_unique<BinOper>(gettype, std::move(result), std::move(lowprior_expr()));
-		}
 	}
 
 	return (return_v ? std::move(return_v) : std::move(result));
 }
 
 template<typename T>
-std::unique_ptr<Node> Parser::IfWhileS(size_t& i)
+std::unique_ptr<Node> Parser::IfWhileS(size_t& i, bool SkipCond)
 {
-	// condition from '(' to ')'
-	it_end = std::find_if(token_iter, tokens->cend(), [](const Token& token) { return token.type == TokenType::CLOSE_PAREN; });
-	i += it_end - token_iter;
-	token_iter += 2; // token_iter == after '('
-	std::unique_ptr<Node> cond = lowprior_expr();
-
+	std::unique_ptr<Node> cond;
+	if (!SkipCond)
+	{
+		// condition from '(' to ')'
+		it_end = std::find_if(token_iter, tokens->cend(), [](const Token& token) { return token.type == TokenType::CLOSE_PAREN; });
+		i += it_end - token_iter;
+		token_iter += 2; // token_iter == after '('
+		cond = lowprior_expr();
+	}
+	else
+	{
+		token_iter += 2;
+	}
 	++token_iter; // token_iter == '{'
 	if (token_iter->type != TokenType::LSCOPE)
-		throw std::invalid_argument("should be in other scope { } ");
+		throw std::invalid_argument("should be in scope { } ");
 
 	size_t sScope = NULL;
 	auto end_scope = std::find_if(token_iter, tokens->cend(), [&sScope](const Token& token)
@@ -676,10 +628,11 @@ std::unique_ptr<Node> Parser::IfWhileS(size_t& i)
 	if (end_scope == tokens->cend())
 		throw std::invalid_argument("scope was not closed");
 
+
 	size_t newI = i + (end_scope - token_iter) + 1;
 	auto b = parse_(i + 2, newI);
 	i = newI;
-	return std::make_unique<T>(std::move(b), std::move(cond));
+	return std::make_unique<T>(std::move(b), (SkipCond ? nullptr : std::move(cond)));
 }
 
 std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
@@ -697,6 +650,11 @@ std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 		case TokenType::KEYWORD_IF:
 		{
 			child = IfWhileS<IFKeyW>(i);
+			if (i + 1 < end && (*tokens)[i + 1].type == TokenType::KEYWORD_ELSE)
+			{
+				++i;
+				*child->getLRHS().first = IfWhileS<Scope>(i, true);
+			}
 			break;
 		}
 		case TokenType::KEYWORD_WHILE:

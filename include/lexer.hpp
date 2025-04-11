@@ -28,9 +28,11 @@ enum class TokenType
 	UNOP_OPPNUM,	// !		6
 	UNOP_INC,		// ++		6
 	UNOP_DEC,		// --		6
+	UNOP_MINUS,		// -		6
 
 	KEYWORD_WHILE,
 	KEYWORD_IF,
+	KEYWORD_ELSE,
 	KEYWORD_PRINT,
 
 	OPEN_PAREN,		// (
