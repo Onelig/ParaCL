@@ -18,7 +18,7 @@ public:
     virtual std::optional<int> execute() const = 0;
     virtual int* execute_pointer();
     virtual TokenType getType() const = 0;
-    virtual std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() { return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(nullptr,nullptr); }
+    virtual std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS();
     virtual ~Node() = default;
 };
 
@@ -34,13 +34,12 @@ class BinOper final : public Node
 {
 private:
     TokenType tokentype;
-
-public:
     std::unique_ptr<Node> LHS,
                           RHS;
 
-    std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() override { return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(&LHS, &RHS);}
+public:
     BinOper(TokenType oper, std::unique_ptr<Node>&& LHS, std::unique_ptr<Node>&& RHS, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+    std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() override;
     TokenType getType() const override;
     std::optional<int> execute() const override;
 };
@@ -57,15 +56,8 @@ public:
     UnOper(TokenType unoper, std::unique_ptr<Node>&& element, bool rElem = true ,std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
     TokenType getType() const override;
     std::optional<int> execute() const override;
-    virtual std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() 
-    {
-        if (rElem)
-        {
-            return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(&element, nullptr);
-        }
-        return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(nullptr, &element);
-    }
-    virtual int* execute_pointer();
+    std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() override;
+    virtual int* execute_pointer() override;
 };
 
 
@@ -78,9 +70,7 @@ private:
 public:
     IFKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& else_ = nullptr, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
     TokenType getType() const override;
-    std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() override {
-        return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(&else_, nullptr);
-    }
+    std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() override;
     std::optional<int> execute() const override;
 };
 

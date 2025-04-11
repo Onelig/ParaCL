@@ -23,6 +23,11 @@ int* Node::execute_pointer()
 	return nullptr;
 }
 
+std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> Node::getLRHS() 
+{
+	return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(nullptr, nullptr);
+}
+
 
 //
 // ------------------- Scope -------------------
@@ -69,6 +74,11 @@ BinOper::BinOper(TokenType oper, std::unique_ptr<Node>&& LHS, std::unique_ptr<No
 	{
 		throw std::invalid_argument("invalid LHS");
 	}
+}
+
+std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> BinOper::getLRHS() 
+{ 
+	return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(&LHS, &RHS); 
 }
 
 TokenType BinOper::getType() const
@@ -181,7 +191,7 @@ std::optional<int> UnOper::execute() const
 	case TokenType::UNOP_INC:
 		if (element->getType() == TokenType::NUMBER)
 		{
-			throw std::invalid_argument("inv arg");
+			throw std::invalid_argument("with ++ should be l-value");
 		}
 
 		if (rElem)
@@ -198,7 +208,7 @@ std::optional<int> UnOper::execute() const
 	case TokenType::UNOP_DEC:
 		if (element->getType() == TokenType::NUMBER)
 		{
-			throw std::invalid_argument("inv arg");
+			throw std::invalid_argument("with -- should be l-value");
 		}
 
 		if (rElem)
@@ -221,6 +231,15 @@ std::optional<int> UnOper::execute() const
 	return std::make_optional<int>(result);
 }
 
+std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> UnOper::getLRHS()
+{
+	if (rElem)
+	{
+		return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(&element, nullptr);
+	}
+	return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(nullptr, &element);
+}
+
 int* UnOper::execute_pointer()
 {
 	//this->execute();
@@ -238,6 +257,11 @@ IFKeyW::IFKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition,
 TokenType IFKeyW::getType() const
 {
 	return TokenType::KEYWORD_IF;
+}
+
+std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> IFKeyW::getLRHS() 
+{
+	return std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*>(&else_, nullptr);
 }
 
 std::optional<int> IFKeyW::execute() const
@@ -318,7 +342,7 @@ std::optional<int> PrintKeyW::execute() const
 {
 	std::cout << str_cout->execute().value() << std::endl;
 
-	return std::make_optional<int>(1);
+	return std::nullopt;
 }
 
 
@@ -347,7 +371,7 @@ std::optional<int> VAR::execute() const
 int* VAR::execute_pointer()
 {
 	bool isExist = true;
-	if (std::nullopt == this->execute())
+	if (this->execute() == std::nullopt)
 		isExist = false;
 
 	value = &VarInt[name];
@@ -606,9 +630,8 @@ std::unique_ptr<Node> Parser::IfWhileS(size_t& i, bool SkipCond)
 		cond = lowprior_expr();
 	}
 	else
-	{
 		token_iter += 2;
-	}
+
 	++token_iter; // token_iter == '{'
 	if (token_iter->type != TokenType::LSCOPE)
 		throw std::invalid_argument("should be in scope { } ");
