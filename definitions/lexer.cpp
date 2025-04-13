@@ -43,16 +43,7 @@ void Lexer::tokenize()
 {
 	for (size_t i = 0; i < code_lenght; ++i)
 	{
-		if (code[i] == '/' && i + 1 < code_lenght && code[i + 1] == '/')
-		{
-			while (i < code_lenght && code[i] != '\n')
-			{
-				++i;
-				continue;
-			}
-		}
-
-		else if (code[i] == ' ' || code[i] == '\t' || code[i] == '\n')
+		if (code[i] == ' ' || code[i] == '\t' || code[i] == '\n')
 			continue;
 
 		else if (std::isalpha(code[i]))
@@ -63,15 +54,16 @@ void Lexer::tokenize()
 
 		else
 		{
+			bool next_i_ex = i + 1 < code_lenght;
 			switch (code[i])
 			{
 			case '+':
-				if (i + 1 < code_lenght && code[i + 1] == '=')
+				if (next_i_ex && code[i + 1] == '=')
 				{
 					tokens->emplace_back(Token{ "+=", TokenType::OP_PLUS_SET, Priority::MIN });
 					++i;
 				}
-				else if (i + 1 < code_lenght && code[i + 1] == '+')
+				else if (next_i_ex && code[i + 1] == '+')
 				{
 					tokens->emplace_back(Token{ "++", TokenType::UNOP_INC, Priority::OVER });
 					++i;
@@ -81,12 +73,12 @@ void Lexer::tokenize()
 				break;
 
 			case '-':
-				if (i + 1 < code_lenght && code[i + 1] == '=')
+				if (next_i_ex && code[i + 1] == '=')
 				{
 					tokens->emplace_back(Token{ "-=", TokenType::OP_MINUS_SET, Priority::MAX });
 					++i;
 				}
-				else if (i + 1 < code_lenght && code[i + 1] == '-')
+				else if (next_i_ex && code[i + 1] == '-')
 				{
 					tokens->emplace_back(Token{ "--", TokenType::UNOP_DEC, Priority::OVER });
 					++i;
@@ -96,7 +88,7 @@ void Lexer::tokenize()
 				break;
 				
 			case '*':
-				if (i + 1 < code_lenght && code[i + 1] == '=')
+				if (next_i_ex && code[i + 1] == '=')
 				{
 					tokens->emplace_back(Token{ "*=", TokenType::OP_MULT_SET, Priority::MAX });
 					++i;
@@ -106,9 +98,26 @@ void Lexer::tokenize()
 				break;
 
 			case '/':
-				if (i + 1 < code_lenght && code[i + 1] == '=')
+				if (next_i_ex && code[i + 1] == '=')
 				{
 					tokens->emplace_back(Token{ "/=", TokenType::OP_DIV_SET, Priority::MAX });
+					++i;
+				}
+				else if (next_i_ex && code[i + 1] == '/')
+				{
+					++i;
+					while (i < code_lenght && code[i] != '\n')
+					{
+						++i;
+					}
+				}
+				else if (next_i_ex && code[i + 1] == '*')
+				{
+					i += 2;
+					while (code[i] != '*' && i + 1 < code_lenght && code[i + 1] != '/')
+					{
+						++i;
+					}
 					++i;
 				}
 				else
@@ -116,7 +125,7 @@ void Lexer::tokenize()
 				break;
 
 			case '%':
-				if (i + 1 < code_lenght && code[i + 1] == '=')
+				if (next_i_ex && code[i + 1] == '=')
 				{
 					tokens->emplace_back(Token{ "%=", TokenType::OP_REM_SET, Priority::MAX });
 					++i;
@@ -126,7 +135,7 @@ void Lexer::tokenize()
 				break;
 
 			case '<':
-				if (i + 1 < code_lenght && code[i + 1] == '=')
+				if (next_i_ex && code[i + 1] == '=')
 				{
 					tokens->emplace_back(Token{ "<=", TokenType::OP_LTEQ, Priority::MED });
 					++i;
@@ -137,7 +146,7 @@ void Lexer::tokenize()
 				break;
 				
 			case '>':
-				if (i + 1 < code_lenght && code[i + 1] == '=')
+				if (next_i_ex && code[i + 1] == '=')
 				{
 					tokens->emplace_back(Token{ ">=", TokenType::OP_GTEQ, Priority::MED });
 					++i;
@@ -148,7 +157,7 @@ void Lexer::tokenize()
 				break;
 
 			case '=':
-				if (i + 1 < code_lenght && code[i + 1] == '=')
+				if (next_i_ex && code[i + 1] == '=')
 				{
 					tokens->emplace_back(Token{ "==", TokenType::OP_EQUAL, Priority::LOW });
 					++i;
@@ -159,15 +168,13 @@ void Lexer::tokenize()
 				break;
 
 			case '!':
-				if (i + 1 < code_lenght && code[i + 1] == '=')
+				if (next_i_ex && code[i + 1] == '=')
 				{
 					tokens->emplace_back(Token{ "!=", TokenType::OP_NEQUAL, Priority::LOW });
 					++i;
 				}
 				else
-				{
 					tokens->emplace_back(Token{ "!=", TokenType::UNOP_OPPNUM, Priority::OVER });
-				}
 				break;
 
 			case '?':
