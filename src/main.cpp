@@ -67,7 +67,7 @@ int main()
 				code += line + '\n';
 		}
 	}
-	else
+	else if (type_read == '2')
 	{
 		std::string path;
 		std::cout << "Enter path: ";

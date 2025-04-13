@@ -15,6 +15,11 @@ public:
 
 public: 
     Node(std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right);
+    Node(const Node& other) = delete;
+    Node(Node&& other) = delete;
+    Node& operator=(const Node& other) = delete;
+    Node& operator=(Node&& other) = delete;
+
     virtual std::optional<int> execute() const = 0;
     virtual int* execute_pointer();
     virtual TokenType getType() const = 0;
@@ -129,9 +134,6 @@ public:
 
 class GetNum final : public Node
 {
-private:
-    int value;
-
 public:
     GetNum(std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
     TokenType getType() const override;
@@ -150,6 +152,7 @@ private:
 
     std::optional<const Token> peek();
     std::optional<const Token> get();
+    std::unique_ptr<Scope> scope(size_t& i);
     std::unique_ptr<Node> ifOverOper();
     std::unique_ptr<Node> factor();
 

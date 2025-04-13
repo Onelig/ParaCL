@@ -42,6 +42,8 @@ std::optional<int> Scope::execute() const
 	const std::unique_ptr<Node>* LHS_t = &left,
 							   * RHS_t = &right;
 
+	std::unordered_map<std::string, int> copyVarInt = VarInt;
+
 	while (*LHS_t && RHS_m)
 	{
 		(*LHS_t)->execute();
@@ -54,6 +56,17 @@ std::optional<int> Scope::execute() const
 		else
 			RHS_m = false;
 	}
+
+	for (auto& [str, value] : copyVarInt)
+		{
+			std::unordered_map<std::string, int>::const_iterator iter = VarInt.find(str);
+			if (iter != VarInt.end())
+			{
+				value = iter->second;
+			}
+		}
+
+	VarInt = copyVarInt;
 
 	return std::make_optional<int>(true);
 }
@@ -267,26 +280,10 @@ std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> IFKeyW::getLRHS()
 std::optional<int> IFKeyW::execute() const
 {
 	if (condition->execute().value())
-	{
-		std::unordered_map<std::string, int> copyVarInt = VarInt;
-
 		scope->execute();
 
-		for (auto& [str, value] : copyVarInt)
-		{
-			std::unordered_map<std::string, int>::const_iterator iter = VarInt.find(str);
-			if (iter != VarInt.end())
-			{
-				value = iter->second;
-			}
-		}
-
-		VarInt = copyVarInt;
-	}
 	else if (else_)
-	{
 		else_->execute();
-	}
 
 	return std::nullopt;
 }
@@ -306,20 +303,8 @@ TokenType WhileKeyW::getType() const
 
 std::optional<int> WhileKeyW::execute() const
 {
-	std::unordered_map<std::string, int> copyVarInt = VarInt;
-
-	scope->execute();
-
-	for (auto& [str, value] : copyVarInt)
-	{
-		std::unordered_map<std::string, int>::const_iterator iter = VarInt.find(str);
-		if (iter != VarInt.end())
-		{
-			value = iter->second;
-		}
-	}
-
-	VarInt = copyVarInt;
+	while (condition->execute().value())
+		scope->execute();
 
 	return std::nullopt;
 }
@@ -450,6 +435,33 @@ std::optional<const Token> Parser::get()
 	return *(token_iter++);
 }
 
+std::unique_ptr<Scope> Parser::scope(size_t& i)
+{
+	if (token_iter->type != TokenType::LSCOPE)
+		throw std::invalid_argument("should be in scope { } ");
+
+	size_t sScope = NULL;
+	auto end_scope = std::find_if(token_iter, tokens->cend(), [&sScope](const Token& token)
+		{
+			if (token.type == TokenType::LSCOPE)
+				++sScope;
+
+			else if (token.type == TokenType::RSCOPE)
+				--sScope;
+
+			return !sScope;
+		});
+
+	if (end_scope == tokens->cend())
+		throw std::invalid_argument("scope was not closed");
+
+
+	size_t newI = i + (end_scope - token_iter);
+	auto b = parse_(i + 1, newI);
+	i = newI;
+	return std::make_unique<Scope>(std::move(b->left), std::move(b->right));
+}
+
 std::unique_ptr<Node> Parser::ifOverOper()
 {
 	std::unique_ptr<Node> nd = nullptr;
@@ -522,15 +534,20 @@ std::unique_ptr<Node> Parser::factor()
 		get();
 		return expr;
 	}
-
 	else if (peek().value().type == TokenType::GETNUM)
 	{
 		get();
 		return std::make_unique<GetNum>();
 	}
+	else
+	{
+		return ifOverOper();
+	}
 
-	return ifOverOper();
+	return nullptr;
 }
+
+
 
 std::unique_ptr<Node> Parser::maxprior_expr()
 {
@@ -633,29 +650,9 @@ std::unique_ptr<Node> Parser::IfWhileS(size_t& i, bool SkipCond)
 		token_iter += 2;
 
 	++token_iter; // token_iter == '{'
-	if (token_iter->type != TokenType::LSCOPE)
-		throw std::invalid_argument("should be in scope { } ");
-
-	size_t sScope = NULL;
-	auto end_scope = std::find_if(token_iter, tokens->cend(), [&sScope](const Token& token)
-		{
-			if (token.type == TokenType::LSCOPE)
-				++sScope;
-
-			else if (token.type == TokenType::RSCOPE)
-				--sScope;
-
-			return !sScope;
-		});
-
-	if (end_scope == tokens->cend())
-		throw std::invalid_argument("scope was not closed");
-
-
-	size_t newI = i + (end_scope - token_iter) + 1;
-	auto b = parse_(i + 2, newI);
-	i = newI;
-	return std::make_unique<T>(std::move(b), (SkipCond ? nullptr : std::move(cond)));
+	++i;
+	
+	return std::make_unique<T>(scope(i), std::move(cond));
 }
 
 std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
@@ -691,6 +688,10 @@ std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 			it_end = std::find_if(token_iter, tokens->cend(), [](const Token& token) { return token.type == TokenType::ENDCOLOM; });
 			i += it_end - token_iter + 1;
 			child = std::make_unique<PrintKeyW>(lowprior_expr());
+			break;
+
+		case TokenType::LSCOPE:
+			child = scope(i);
 			break;
 
 		default:
