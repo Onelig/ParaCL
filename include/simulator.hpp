@@ -2,11 +2,15 @@
 
 #include <parser.hpp>
 
-class Simulator
+namespace ParaCL
 {
-	std::unique_ptr<Node> root;
+	class Simulator
+	{
+		std::unique_ptr<Node> root;
 
-public:
-	Simulator(const std::string& code);
-	bool run();
-};
+	public:
+		Simulator(const std::string& code);
+		bool run();
+	};
+
+}

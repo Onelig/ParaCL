@@ -89,7 +89,7 @@ int main()
 
 	try
 	{	
-		Simulator simulator(code);
+		ParaCL::Simulator simulator(code);
 		simulator.run();
 	}
 	catch (const std::exception& e)

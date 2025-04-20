@@ -1,17 +1,19 @@
-#include <simulator.hpp>
-
-Simulator::Simulator(const std::string& code)
-{ 
-	Lexer lexer(code);
-	lexer.tokenize();
-
-	Parser parser(lexer.gettokens());
-	parser.parse();
-	
-	root = parser.getAST();
-}
-
-bool Simulator::run()
+#include "simulator.hpp"
+namespace ParaCL
 {
-	return root->execute().value();
+	Simulator::Simulator(const std::string& code)
+	{
+		Lexer lexer(code);
+		lexer.tokenize();
+
+		Parser parser(lexer.gettokens());
+		parser.parse();
+
+		root = parser.getAST();
+	}
+
+	bool Simulator::run()
+	{
+		return root->execute().value();
+	}
 }
