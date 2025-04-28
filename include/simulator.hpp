@@ -10,7 +10,6 @@ namespace ParaCL
 
 	public:
 		Simulator(const std::string& code);
-		bool run();
+		void run();
 	};
-
 }

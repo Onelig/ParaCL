@@ -9,6 +9,7 @@ set(SOURCE_LIB
 	simulator.cpp
 	parser.cpp
 	lexer.cpp
+	LanguageErrors.cpp
 )
 
 add_library(definitions_lib STATIC ${SOURCE_LIB})

@@ -2,7 +2,7 @@
 
 #include <vector>
 #include <string>
-#include <iostream>
+#include <memory>
 
 namespace ParaCL
 {
@@ -62,19 +62,20 @@ namespace ParaCL
 
 	struct Token
 	{
-		std::string value;
-		TokenType type;
-		Priority priority = Priority::NONE;
+		const TokenType type;
+		const unsigned short line;
+		const Priority priority = Priority::NONE;
+		const std::string value = "";
 	};
 
-	// std::stoi !! 
 	class Lexer
 	{
 	private:
 		std::shared_ptr<std::vector<Token>> tokens;
 		std::string code;
 		size_t code_length;
-
+		unsigned short line;
+		
 	private: // helpful methods
 		void strTokenize(size_t& i);
 		void intTokenize(size_t& i);

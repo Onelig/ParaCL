@@ -1,4 +1,6 @@
-#include "simulator.hpp"
+#include <simulator.hpp>
+#include <LanguageErrors.hpp>
+
 namespace ParaCL
 {
 	Simulator::Simulator(const std::string& code)
@@ -11,9 +13,9 @@ namespace ParaCL
 
 		root = parser.getAST();
 	}
-
-	bool Simulator::run()
+	
+	void Simulator::run()
 	{
-		return root->execute().value();
+		root->execute();
 	}
 }

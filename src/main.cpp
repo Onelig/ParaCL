@@ -2,6 +2,7 @@
 #include <signal.h>
 
 #include <simulator.hpp>
+#include <iostream>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -19,6 +20,7 @@ void sighandler(int sig)
 
 int main()
 {
+	std::unique_ptr<int> obj(new int(2));
 	signal(SIGINT, &sighandler);
 	std::string code;
 	
@@ -72,7 +74,7 @@ int main()
 		std::string path;
 		std::cout << "Enter path: ";
 		std::getline(std::cin, path);
-		
+
 		std::ifstream f(path);
 		while (!f.is_open())
 		{

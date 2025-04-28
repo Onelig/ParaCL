@@ -1,7 +1,7 @@
 #pragma once
 
-#include <string>
 #include <lexer.hpp>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <optional>
@@ -21,14 +21,33 @@ namespace ParaCL
         Node& operator=(const Node& other) = delete;
         Node& operator=(Node&& other) = delete;
 
+        // do smth and return result(nullopt - if keyword)
         virtual std::optional<int> execute() const = 0;
-        virtual int* execute_pointer();
         virtual TokenType getType() const = 0;
-        virtual std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS();
         virtual ~Node() = default;
     };
 
-    class Scope final : public Node
+    // + execute_pointer()
+    class LValue : public Node
+    {
+    public:
+        using Node::Node;
+        // pointer to changeable result(basically - nullptr)
+        virtual int* execute_pointer() = 0;
+    };
+
+    // + getLRHS()
+    class LRHS : public Node
+    {
+    public:
+        using Node::Node;
+        // receive LHS and RHS(basically - nullptr | nullpt)
+        //virtual std::pair<std::unique_ptr<Node>&, std::unique_ptr<Node>&> getLRHS() = 0;
+        virtual std::unique_ptr<Node>& getRHS() = 0;
+    };
+
+    // base
+    class Scope final : public Node // getType() execute()
     {
     public:
         Scope(std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
@@ -36,52 +55,82 @@ namespace ParaCL
         TokenType getType() const override;
     };
 
-    class BinOper final : public Node
+    // base + getLRHS()
+    class BinOper final : public LRHS // getLRHS() getType() execute()
     {
     private:
         TokenType tokentype;
         std::unique_ptr<Node> LHS,
-            RHS;
+                              RHS;
 
     public:
         BinOper(TokenType oper, std::unique_ptr<Node>&& LHS, std::unique_ptr<Node>&& RHS, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
-        std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() override;
+        // std::pair<std::unique_ptr<Node>&, std::unique_ptr<Node>&> getLRHS() override;
+        std::unique_ptr<Node>& getRHS() override;
         TokenType getType() const override;
         std::optional<int> execute() const override;
     };
 
+    // base + getLRHS()
+    class BinOperAssign final : public LRHS // getLRHS() getType() execute()
+    {
+    private:
+        TokenType tokentype;
+        std::unique_ptr<LValue> LHS;
+        std::unique_ptr<Node>   RHS;
 
-    class UnOper final : public Node
+    public:
+        BinOperAssign(TokenType oper, std::unique_ptr<LValue>&& LHS, std::unique_ptr<Node>&& RHS, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+        // std::pair<std::unique_ptr<Node>&, std::unique_ptr<Node>&> getLRHS() override;
+        std::unique_ptr<Node>& getRHS() override;
+        TokenType getType() const override;
+        std::optional<int> execute() const override;
+    };
+
+    // base
+    class UnOperRv final : public Node // getType() execute()
     {
     private:
         TokenType tokentype;
         std::unique_ptr<Node> element;
-        bool rElem;
 
     public:
-        UnOper(TokenType unoper, std::unique_ptr<Node>&& element, bool rElem = true, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+        UnOperRv(TokenType unoper, std::unique_ptr<Node>&& element, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
         TokenType getType() const override;
         std::optional<int> execute() const override;
-        std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() override;
-        virtual int* execute_pointer() override;
     };
 
-
-    class IFKeyW final : public Node
+    // base + execute_pointer()
+    class UnOperLv final : public LValue  // getType() execute() execute_pointer()
     {
     private:
-        mutable std::unique_ptr<Node> scope, else_;
+        TokenType tokentype;
+        std::unique_ptr<LValue> element;
+        // true -> should be just with prefix in(de)crement + l-value, false -> others
+        bool prefix;
+
+    public:
+        UnOperLv(TokenType unoper, std::unique_ptr<LValue>&& element, bool prefix = false, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+        TokenType getType() const override;
+        std::optional<int> execute() const override;
+        int* execute_pointer() override;
+    };
+
+    // base
+    class IFKeyW final : public Node // getType() execute()
+    {
+    private:
+        mutable std::unique_ptr<Scope> scope, else_;
         std::unique_ptr<Node> condition;
 
     public:
-        IFKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& else_ = nullptr, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+        IFKeyW(std::unique_ptr<Node>&& condition, std::unique_ptr<Scope>&& scope, std::unique_ptr<Scope>&& else_, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
         TokenType getType() const override;
-        std::pair<std::unique_ptr<Node>*, std::unique_ptr<Node>*> getLRHS() override;
         std::optional<int> execute() const override;
     };
 
-
-    class WhileKeyW final : public Node
+    // base
+    class WhileKeyW final : public Node // getType() execute()
     {
     private:
         mutable std::unique_ptr<Node> scope;
@@ -93,8 +142,8 @@ namespace ParaCL
         std::optional<int> execute() const override;
     };
 
-
-    class PrintKeyW final : public Node
+    // base
+    class PrintKeyW final : public Node // getType() execute()
     {
     private:
         std::unique_ptr<Node> str_cout;
@@ -105,12 +154,12 @@ namespace ParaCL
         std::optional<int> execute() const override;
     };
 
-
-    class VAR final : public Node
+    // base + execute_pointer()
+    class VAR final : public LValue // getType() execute() execute_pointer()
     {
     private:
         std::string name;
-        mutable int* value;
+        int* value;
 
     public:
         VAR(const std::string& name, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
@@ -119,8 +168,8 @@ namespace ParaCL
         int* execute_pointer() override;
     };
 
-
-    class Num final : public Node
+    // base
+    class Num final : public Node // getType() execute()
     {
     private:
         int value;
@@ -132,8 +181,8 @@ namespace ParaCL
         std::optional<int> execute() const override;
     };
 
-
-    class GetNum final : public Node
+    // base
+    class GetNum final : public Node // getType()  execute()
     {
     public:
         GetNum(std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
@@ -143,17 +192,15 @@ namespace ParaCL
 
 
 
-    class Parser
+    class Parser final
     {
     private:
         std::unique_ptr<Node> root;
         std::shared_ptr<std::vector<Token>> tokens;
-        std::vector<Token>::const_iterator token_iter,
-            it_end;
+        std::vector<Token>::const_iterator token_iter;
 
         std::optional<const Token> peek();
         std::optional<const Token> get();
-        std::unique_ptr<Scope> scope(size_t& i);
         std::unique_ptr<Node> ifOverOper();
         std::unique_ptr<Node> factor();
 
@@ -165,8 +212,11 @@ namespace ParaCL
 
         std::unique_ptr<Node> parse_(size_t begin, size_t end);
 
-        template<typename T>
-        std::unique_ptr<Node> IfWhileS(size_t& i, bool SkipCond = false);
+        std::unique_ptr<Node> cond(size_t& i);
+        std::unique_ptr<Scope> scope(size_t& i);
+
+        std::unique_ptr<Node> IfElseS(size_t& i);
+        std::unique_ptr<Node> WhileS(size_t& i);
     public:
         Parser(std::shared_ptr<std::vector<Token>> token_vec);
         void parse();
