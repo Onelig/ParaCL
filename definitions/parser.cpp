@@ -354,10 +354,10 @@ namespace ParaCL
 	// ------------------- IFKeyW -------------------
 	//
 	IFKeyW::IFKeyW(std::unique_ptr<Node>&& condition, std::unique_ptr<Scope>&& scope, std::unique_ptr<Scope>&& else_, unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-		: scope(std::move(scope)), else_(std::move(else_)), condition(std::move(condition)), Node(std::move(left), std::move(right))
+		: scope(std::move(scope)), line(line), else_(std::move(else_)), condition(std::move(condition)), Node(std::move(left), std::move(right))
 	{ 
 		if (this->condition == nullptr)
-			throw Errors::Syntax("Condition was skipped", line); 
+			throw Errors::Syntax("Condition was skipped", this->line); 
 	}
 
 	TokenType IFKeyW::getType() const
@@ -367,7 +367,9 @@ namespace ParaCL
 
 	std::optional<int> IFKeyW::execute() const
 	{
-		if (condition->execute().value())
+		std::optional<int> p = condition->execute();
+
+		if (p.value())
 			scope->execute();
 
 		else if (else_)
@@ -381,10 +383,10 @@ namespace ParaCL
 	// ------------------- WhileKeyW -------------------
 	//
 	WhileKeyW::WhileKeyW(std::unique_ptr<Scope>&& scope, std::unique_ptr<Node>&& condition, unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-		: scope(std::move(scope)), condition(std::move(condition)), Node(std::move(left), std::move(right))
+		: scope(std::move(scope)), line(line), condition(std::move(condition)), Node(std::move(left), std::move(right))
 	{
 		if (this->condition == nullptr)
-			throw Errors::Syntax("Condition was skipped", line);
+			throw Errors::Syntax("Condition was skipped", this->line);
 	}
 
 	TokenType WhileKeyW::getType() const
@@ -394,7 +396,9 @@ namespace ParaCL
 
 	std::optional<int> WhileKeyW::execute() const
 	{
-		while (condition->execute().value())
+		std::optional<int> p = condition->execute();
+
+		while (p.value())
 			scope->execute();
 
 		return std::nullopt;
@@ -417,9 +421,7 @@ namespace ParaCL
 	std::optional<int> PrintKeyW::execute() const
 	{
 		std::optional<int> v = str_cout->execute();
-		if (v == std::nullopt)
-			throw Errors::Syntax("value was not declared in this scope", line_);
-		
+
 		std::cout << v.value() << std::endl;
 
 		return std::nullopt;
@@ -442,16 +444,16 @@ namespace ParaCL
 	std::optional<int> VAR::execute() const
 	{
 		std::unordered_map<std::string, int>::iterator iter = VarInt.find(name);
-		if (iter != VarInt.end())
-			return iter->second;
+		if (iter == VarInt.end())
+			throw Errors::Syntax("Value was not declared in this scope", line);
 
-		return std::nullopt;
+		return iter->second;
 	}
 
 	int* VAR::execute_pointer()
 	{
 		bool isExist = true;
-		if (this->execute() == std::nullopt)
+		if (VarInt.find(name) == VarInt.end())
 			isExist = false;
 
 		value = &VarInt[name];

@@ -140,6 +140,7 @@ namespace ParaCL
     private:
         std::unique_ptr<Scope> scope, else_;
         std::unique_ptr<Node> condition;
+        unsigned short line;
 
     public:
         IFKeyW(std::unique_ptr<Node>&& condition, std::unique_ptr<Scope>&& scope, std::unique_ptr<Scope>&& else_, unsigned short line, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
@@ -153,7 +154,7 @@ namespace ParaCL
     private:
         std::unique_ptr<Node> scope;
         std::unique_ptr<Node> condition;
-
+        unsigned short line;
     public:
         WhileKeyW(std::unique_ptr<Scope>&& scope, std::unique_ptr<Node>&& condition, unsigned short line, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
         TokenType getType() const override;
