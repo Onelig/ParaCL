@@ -8,8 +8,6 @@ namespace ParaCL
 {
 	// contains all exist variables
 	std::unordered_map<std::string, int> VarInt; 
-	std::unordered_set<ParaCL::TokenType> MaxPriorCont{ ParaCL::TokenType::OP_PLUS_SET, ParaCL::TokenType::OP_MINUS_SET, ParaCL::TokenType::OP_REM_SET, ParaCL::TokenType::OP_MULT_SET, ParaCL::TokenType::OP_DIV_SET, ParaCL::TokenType::OP_SET };
-
 
 	void ClearBuffer()
 	{
@@ -23,18 +21,83 @@ namespace ParaCL
 		: left(std::move(left)), right(std::move(right))
 	{ }
 
+
+	
+	//
+	// ------------------- LValue -------------------
+	//
+	LValue::LValue(unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+		: line(line), Node(std::move(left), std::move(right))
+	{ }
+
+	unsigned short LValue::getLine() const
+	{
+		return line;
+	}
+
+
+
+	//
+	// ------------------- GlobalScope -------------------
+	//
+	GlobalScope::GlobalScope(std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+		: Node(std::move(left), std::move(right))
+	{ }
+
+	std::optional<int> GlobalScope::execute() const
+	{
+		bool RHS_m = true;
+		const std::unique_ptr<Node>* LHS_t = &left,
+								   * RHS_t = &right;
+
+		// copy scope elements before new scope
+		std::unordered_map<std::string, int> copyVarInt = VarInt;
+
+		while (*LHS_t && RHS_m)
+		{
+			(*LHS_t)->execute();
+			if (*RHS_t)
+			{
+				(*RHS_t)->execute();
+				LHS_t = &(*RHS_t)->left;
+				RHS_t = &(*RHS_t)->right;
+			}
+			else
+				RHS_m = false;
+		}
+
+		// update actually scope with changed value from last scope
+		for (auto& [str, value] : copyVarInt)
+		{
+			std::unordered_map<std::string, int>::const_iterator iter = VarInt.find(str);
+			if (iter != VarInt.end())
+				value = iter->second;
+		}
+
+		// the set of elements that were before last scope
+		VarInt = copyVarInt;
+
+		return std::nullopt;
+	}
+
+	TokenType GlobalScope::getType() const
+	{
+		return TokenType::NONE;
+	}
+
+
 	//
 	// ------------------- Scope -------------------
 	//
-	Scope::Scope(std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-		: Node(std::move(left), std::move(right))
+	Scope::Scope(std::unique_ptr<Node>&& left_, std::unique_ptr<Node>&& right_, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+		: left_(std::move(left_)), right_(std::move(right_)), Node(std::move(left), std::move(right))
 	{ }
 
 	std::optional<int> Scope::execute() const
 	{
 		bool RHS_m = true;
-		const std::unique_ptr<Node>* LHS_t = &left,
-								   * RHS_t = &right;
+		const std::unique_ptr<Node>* LHS_t = &left_,
+								   * RHS_t = &right_;
 
 		// copy scope elements before new scope
 		std::unordered_map<std::string, int> copyVarInt = VarInt;
@@ -75,11 +138,11 @@ namespace ParaCL
 	//
 	// ------------------- BinOper -------------------
 	//
-	BinOper::BinOper(TokenType oper, std::unique_ptr<Node>&& LHS, std::unique_ptr<Node>&& RHS, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-		: tokentype(oper), LHS(std::move(LHS)), RHS(std::move(RHS)), LRHS(std::move(left), std::move(right))
+	BinOper::BinOper(TokenType oper, std::unique_ptr<Node>&& LHS, std::unique_ptr<Node>&& RHS, unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+		: line(line), tokentype(oper), LHS(std::move(LHS)), RHS(std::move(RHS)), LRHS(std::move(left), std::move(right))
 	{
 		if (this->LHS == nullptr || this->RHS == nullptr)
-			throw Errors::Syntax("Not full expression", NULL);
+			throw Errors::Syntax("Not full expression", this->line);
 	}
 
 	std::unique_ptr<Node>& BinOper::getRHS()
@@ -146,7 +209,7 @@ namespace ParaCL
 			break;
 
 		default:
-			throw Errors::Syntax("Incorrect binary operator", NULL);
+			throw Errors::Syntax("Incorrect binary operator", this->line);
 		}
 
 		return std::make_optional<int>(result);
@@ -157,11 +220,11 @@ namespace ParaCL
 	//
 	// ------------------- BinOperAssign -------------------
 	//
-	BinOperAssign::BinOperAssign(TokenType oper, std::unique_ptr<LValue>&& LHS, std::unique_ptr<Node>&& RHS, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-		: tokentype(oper), LHS(std::move(LHS)), RHS(std::move(RHS)), LRHS(std::move(left), std::move(right))
+	BinOperAssign::BinOperAssign(TokenType oper, std::unique_ptr<LValue>&& LHS, std::unique_ptr<Node>&& RHS, unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+		: line(line), tokentype(oper), LHS(std::move(LHS)), RHS(std::move(RHS)), LRHS(std::move(left), std::move(right))
 	{
 		if (this->LHS == nullptr || this->RHS == nullptr)
-			throw Errors::Syntax("Not full expression", NULL);
+			throw Errors::Syntax("Not full expression", this->line);
 	}
 
 	std::unique_ptr<Node>& BinOperAssign::getRHS()
@@ -187,7 +250,7 @@ namespace ParaCL
 		case TokenType::OP_REM_SET:   *ptr %= RHS_int; break;
 		case TokenType::OP_MULT_SET:  *ptr *= RHS_int; break;
 		case TokenType::OP_DIV_SET:   *ptr /= RHS_int; break;
-		default: throw Errors::Syntax("Incorrect compound assignment operator", NULL);
+		default: throw Errors::Syntax("Incorrect compound assignment operator", line);
 		}
 
 		return std::make_optional<int>(*ptr);
@@ -198,11 +261,11 @@ namespace ParaCL
 	//
 	// ------------------- UnOperRv -------------------
 	//
-	UnOperRv::UnOperRv(TokenType unoper, std::unique_ptr<Node>&& element, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-		: tokentype(unoper), element(std::move(element)), Node(std::move(left), std::move(right))
+	UnOperRv::UnOperRv(TokenType unoper, std::unique_ptr<Node>&& element, unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+		: line(line), tokentype(unoper), element(std::move(element)), Node(std::move(left), std::move(right))
 	{ 
 		if (this->element == nullptr)
-			throw Errors::Syntax("Not full expression", NULL);
+			throw Errors::Syntax("Not full expression", this->line);
 	}
 
 	TokenType UnOperRv::getType() const
@@ -218,7 +281,7 @@ namespace ParaCL
 		{
 		case TokenType::UNOP_OPPNUM: result = !(element->execute().value()); break;
 		case TokenType::OP_MINUS:  result = -element->execute().value();   break;
-		default: throw Errors::Syntax("Incorrect un-operator2", NULL);
+		default: throw Errors::Syntax("Incorrect un-operator", line);
 		}
 
 		return std::make_optional<int>(result);
@@ -229,14 +292,14 @@ namespace ParaCL
 	//
 	// ------------------- UnOperLv -------------------
 	//
-	UnOperLv::UnOperLv(TokenType unoper, std::unique_ptr<LValue>&& element, bool prefix, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-		: tokentype(unoper), element(std::move(element)), prefix(prefix), LValue(std::move(left), std::move(right))
+	UnOperLv::UnOperLv(TokenType unoper, std::unique_ptr<LValue>&& element, unsigned short line, bool prefix, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+		: line(line), tokentype(unoper), element(std::move(element)), prefix(prefix), LValue(line ,std::move(left), std::move(right))
 	{
 		if (this->element == nullptr)
-			throw Errors::Syntax("Not full expression", NULL);
+			throw Errors::Syntax("Not full expression", line);
 
 		else if (tokentype != TokenType::UNOP_DEC && tokentype != TokenType::UNOP_INC)
-			throw Errors::Syntax("Incorrect operator with value", NULL);
+			throw Errors::Syntax("Incorrect operator with value", line);
 	}
 
 	TokenType UnOperLv::getType() const
@@ -272,7 +335,7 @@ namespace ParaCL
 			}
 			break;
 
-		default: throw Errors::Syntax("Incorrect un-operator3", NULL);
+		default: throw Errors::Syntax("Incorrect un-operator", line);
 		}
 
 		return std::make_optional<int>(result);
@@ -294,11 +357,11 @@ namespace ParaCL
 				*result = --(*element->execute_pointer());
 				break;
 
-			default: throw Errors::Syntax("Incorrect un-operator1", NULL);
+			default: throw Errors::Syntax("Incorrect un-operator", line);
 			}
 		}
 		else
-			throw Errors::Syntax("Cannot be used with r-value", NULL);
+			throw Errors::Syntax("Cannot be used with r-value", line);
 
 
 		return result;
@@ -308,11 +371,11 @@ namespace ParaCL
 	//
 	// ------------------- IFKeyW -------------------
 	//
-	IFKeyW::IFKeyW(std::unique_ptr<Node>&& condition, std::unique_ptr<Scope>&& scope, std::unique_ptr<Scope>&& else_, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+	IFKeyW::IFKeyW(std::unique_ptr<Node>&& condition, std::unique_ptr<Scope>&& scope, std::unique_ptr<Scope>&& else_, unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
 		: scope(std::move(scope)), else_(std::move(else_)), condition(std::move(condition)), Node(std::move(left), std::move(right))
 	{ 
 		if (this->condition == nullptr)
-			throw Errors::Syntax("Condition was skipped", NULL); 
+			throw Errors::Syntax("Condition was skipped", line); 
 	}
 
 	TokenType IFKeyW::getType() const
@@ -335,9 +398,12 @@ namespace ParaCL
 	//
 	// ------------------- WhileKeyW -------------------
 	//
-	WhileKeyW::WhileKeyW(std::unique_ptr<Node>&& scope, std::unique_ptr<Node>&& condition, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+	WhileKeyW::WhileKeyW(std::unique_ptr<Scope>&& scope, std::unique_ptr<Node>&& condition, unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
 		: scope(std::move(scope)), condition(std::move(condition)), Node(std::move(left), std::move(right))
-	{ }
+	{
+		if (this->condition == nullptr)
+			throw Errors::Syntax("Condition was skipped", line);
+	}
 
 	TokenType WhileKeyW::getType() const
 	{
@@ -378,8 +444,8 @@ namespace ParaCL
 	//
 	// ------------------- VAR -------------------
 	//
-	VAR::VAR(const std::string& name, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-		: value(nullptr), name(name), LValue(std::move(left), std::move(right))
+	VAR::VAR(const std::string& name, unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+		: value(nullptr), name(name), LValue(line, std::move(left), std::move(right))
 	{ }
 
 	TokenType VAR::getType() const
@@ -437,8 +503,8 @@ namespace ParaCL
 	//
 	// ------------------- GetNum -------------------
 	//
-	GetNum::GetNum(std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-		: Node(std::move(left), std::move(right))
+	GetNum::GetNum(unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+		: line(line), Node(std::move(left), std::move(right))
 	{ }
 
 	TokenType GetNum::getType() const
@@ -452,7 +518,7 @@ namespace ParaCL
 		ClearBuffer();
 		std::cin >> tvalue;
 		if (!std::cin.good())
-			throw Errors::Runtime("Input failure", NULL);
+			throw Errors::Runtime("Input failure", line);
 
 		return tvalue;
 	}
@@ -464,83 +530,93 @@ namespace ParaCL
 	// ------------------- Parser -------------------
 	//
 
-	std::optional<const Token> Parser::peek()
+	inline std::optional<const Token> Parser::peek(bool updateLine)
 	{
 		if (token_iter == tokens->end())
 			return std::nullopt;
 
+		if (updateLine)
+			line_ = token_iter->line;
+		
 		return *token_iter;
 	}
 
-	std::optional<const Token> Parser::get()
+	inline std::optional<const Token> Parser::get()
 	{
+		line_ = token_iter->line;
 		return *(token_iter++);
-	}
-
-	std::unique_ptr<Node> Parser::ifOverOper()
-	{
-		if (peek().value().priority != Priority::OVER && peek().value().type != TokenType::OP_MINUS)
-			throw Errors::Syntax("Missed value", NULL);
-
-
-		if (peek().value().type == TokenType::UNOP_DEC || peek().value().type == TokenType::UNOP_INC)
-		{
-			TokenType tt = get().value().type;
-			return std::make_unique<UnOperLv>(tt, std::unique_ptr<LValue>(dynamic_cast<LValue*>(factor().release())), true);
-		}
-
-		TokenType tt = get().value().type;
-
-		return std::make_unique<UnOperRv>(tt, factor());
 	}
 
 	std::unique_ptr<Node> Parser::factor()
 	{
-		if (peek().value().type == TokenType::NUMBER)
+		if (!peek().has_value())
+			throw Errors::Syntax("Value was skipped", line_);
+
+		Token token = peek(true).value();
+
+		if (token.type == TokenType::NUMBER)
 			return std::make_unique<Num>(get().value().value);
 
-		else if (peek().value().type == TokenType::VAR)
+		else if (token.type == TokenType::VAR)
 		{
-			std::unique_ptr<LValue> nd = std::make_unique<VAR>(get().value().value);
+			std::unique_ptr<LValue> nd = std::make_unique<VAR>(token.value, line_);
+			get();
 
-			if (peek() && (peek().value().type == TokenType::UNOP_DEC || peek().value().type == TokenType::UNOP_INC))
+			if (peek() && (peek(true).value().type == TokenType::UNOP_DEC || peek(true).value().type == TokenType::UNOP_INC))
 			{
-				nd = std::make_unique<UnOperLv>(peek().value().type, std::move(nd), false);
+				nd = std::make_unique<UnOperLv>(peek().value().type, std::move(nd), line_, false);
 				get();
 			}
 			return std::move(nd);
 		}
-		else if (peek().value().type == TokenType::OPEN_PAREN)
+		else if (token.type == TokenType::OPEN_PAREN)
 		{
 			get();
 			std::unique_ptr<Node> expr = lowprior_expr();
-			if (peek().value().type != TokenType::CLOSE_PAREN)
-				throw Errors::Syntax("Paren was not closed", NULL);
+			if (!peek().has_value() || peek(true).value().type != TokenType::CLOSE_PAREN)
+				throw Errors::Syntax("Paren was not closed", line_);
 
 			get();
 			return expr;
 		}
-		else if (peek().value().type == TokenType::GETNUM)
+		else if (token.type == TokenType::GETNUM)
 		{
 			get();
-			return std::make_unique<GetNum>();
+			return std::make_unique<GetNum>(line_);
 		}
 
 		return ifOverOper();
 	}
 
+	std::unique_ptr<Node> Parser::ifOverOper()
+	{
+		Token token = peek(true).value();
 
+		if (token.priority != Priority::OVER && token.type != TokenType::OP_MINUS)
+			throw Errors::Syntax("Missed value", line_);
+
+
+		if (token.type == TokenType::UNOP_DEC || token.type == TokenType::UNOP_INC)
+		{
+			TokenType tt_type = get().value().type;
+			return std::make_unique<UnOperLv>(tt_type, std::unique_ptr<LValue>(dynamic_cast<LValue*>(factor().release())), line_, true);
+		}
+
+		TokenType tt_type = get().value().type;
+
+		return std::make_unique<UnOperRv>(tt_type, factor(), line_);
+	}
 
 	std::unique_ptr<Node> Parser::maxprior_expr()
 	{
 		std::unique_ptr<Node> result = factor();
 		std::unique_ptr<Node> return_v = nullptr;
 
-		while (peek().has_value() && (peek().value().priority == Priority::MAX))
+		while (peek() && (peek().value().priority == Priority::MAX))
 		{
-			TokenType gettype = get().value().type;
+			Token tt = get().value();
 
-			return_v = std::make_unique<BinOper>(gettype, std::move(return_v ? return_v : result), std::move(factor()));
+			return_v = std::make_unique<BinOper>(tt.type, std::move(return_v ? return_v : result), std::move(factor()), line_);
 		}
 
 		return return_v ? std::move(return_v) : std::move(result);
@@ -551,11 +627,11 @@ namespace ParaCL
 		std::unique_ptr<Node> result = maxprior_expr();
 		std::unique_ptr<Node> return_v = nullptr;
 
-		while (peek().has_value() && (peek().value().priority == Priority::AVER))
+		while (peek() && (peek().value().priority == Priority::AVER))
 		{
-			TokenType gettype = get().value().type;
+			Token tt = get().value();
 
-			return_v = std::make_unique<BinOper>(gettype, std::move(return_v ? return_v : result), std::move(maxprior_expr()));
+			return_v = std::make_unique<BinOper>(tt.type, std::move(return_v ? return_v : result), std::move(maxprior_expr()), line_);
 		}
 
 		return std::move(return_v ? return_v : result);
@@ -566,11 +642,11 @@ namespace ParaCL
 		std::unique_ptr<Node> result = averprior_expr();
 		std::unique_ptr<Node> return_v = nullptr;
 
-		while (peek().has_value() && (peek().value().priority == Priority::MED))
+		while (peek() && (peek().value().priority == Priority::MED))
 		{
-			TokenType gettype = get().value().type;
+			Token tt = get().value();
 
-			return_v = std::make_unique<BinOper>(gettype, std::move(return_v ? return_v : result), std::move(averprior_expr()));
+			return_v = std::make_unique<BinOper>(tt.type, std::move(return_v ? return_v : result), std::move(averprior_expr()), line_);
 		}
 
 		return std::move(return_v ? return_v : result);
@@ -581,11 +657,11 @@ namespace ParaCL
 		std::unique_ptr<Node> result = medprior_expr();
 		std::unique_ptr<Node> return_v = nullptr;
 
-		while (peek().has_value() && (peek().value().priority == Priority::LOW))
+		while (peek() && (peek().value().priority == Priority::LOW))
 		{
-			TokenType gettype = get().value().type;
+			Token tt = get().value();
 
-			return_v = std::make_unique<BinOper>(gettype, std::move(return_v ? return_v : result), std::move(medprior_expr()));
+			return_v = std::make_unique<BinOper>(tt.type, std::move(return_v ? return_v : result), std::move(medprior_expr()), line_);
 		}
 
 		return std::move(return_v ? return_v : result);
@@ -597,9 +673,9 @@ namespace ParaCL
 		std::unique_ptr<Node> return_v = nullptr;
 		std::unique_ptr<Node>* result_v_p = &return_v;
 
-		while (peek().has_value() && (peek().value().priority == Priority::MIN))
+		while (peek() && (peek().value().priority == Priority::MIN))
 		{
-			TokenType gettype = get().value().type;
+			Token tt = get().value();
 
 			if (*result_v_p)
 			{	
@@ -608,37 +684,38 @@ namespace ParaCL
 				std::unique_ptr<LValue> RHS_(dynamic_cast<LValue*>(lrhs_->getRHS().release()));
 
 				if (RHS_ == nullptr)
-					throw Errors::Syntax("Cannot modify r-value", NULL);
+					throw Errors::Syntax("Cannot modify r-value", line_);
 
-				(lrhs_->getRHS()) = std::make_unique<BinOperAssign>(gettype, std::move(RHS_), std::move(lowprior_expr()));
+				(lrhs_->getRHS()) = std::make_unique<BinOperAssign>(tt.type, std::move(RHS_), std::move(lowprior_expr()), line_);
 				result_v_p = &lrhs_->getRHS();
 			}
 
 			else
 			{
-				if (typeid(*result) != typeid(VAR)) 
-					throw Errors::Syntax("Cannot assign r-value", NULL);
+				if (typeid(*result) != typeid(VAR) && typeid(*result) != typeid(UnOperLv)) // !!!!!!!!!!!!!
+					throw Errors::Syntax("Cannot assign r-value", line_);
 
 				std::unique_ptr<LValue> vl(static_cast<LValue*>(result.release()));
-				(*result_v_p) = std::make_unique<BinOperAssign>(gettype, std::move(vl), std::move(lowprior_expr()));
+				(*result_v_p) = std::make_unique<BinOperAssign>(tt.type, std::move(vl), std::move(lowprior_expr()), line_);
 			}
 		}
 
 		return return_v ? std::move(return_v) : std::move(result);
 	}
 
+
 	std::unique_ptr<Node> Parser::cond(size_t& i)
 	{
 		// condition from '(' to ')'
-		if (!peek().has_value() || peek()->type != TokenType::OPEN_PAREN)
-			throw Errors::Syntax("Cannot find condition", NULL);
+		if (!peek().has_value() || peek(true)->type != TokenType::OPEN_PAREN)
+			throw Errors::Syntax("Cannot find condition", line_);
 
 		std::vector<Token>::const_iterator token_iter_b = token_iter;
 		++token_iter; // token_iter == after '('
 		
 		std::unique_ptr<Node> lw_expr = lowprior_expr();
-		if (!peek().has_value() || token_iter->type != TokenType::CLOSE_PAREN)
-			throw Errors::Syntax("Condition does not close", NULL);
+		if (!peek().has_value() || peek(true)->type != TokenType::CLOSE_PAREN)
+			throw Errors::Syntax("Condition does not close", line_);
 
 		i += token_iter - token_iter_b;
 
@@ -647,8 +724,8 @@ namespace ParaCL
 
 	std::unique_ptr<Scope> Parser::scope(size_t& i)
 	{
-		if (!peek().has_value() || token_iter->type != TokenType::LSCOPE)
-			throw Errors::Syntax("Scope should be opened { ... }", token_iter->line);
+		if (!peek().has_value() || peek(true)->type != TokenType::LSCOPE)
+			throw Errors::Syntax("Scope should be opened { ... }", line_);
 
 		size_t sScope = NULL;
 
@@ -663,9 +740,8 @@ namespace ParaCL
 				return !sScope;
 			});
 
-		if (!peek().has_value() || end_scope == tokens->cend())
-			throw Errors::Syntax("Scope should be closed { ... }", (tokens->end() - 1)->line);
-
+		if (end_scope == tokens->cend())
+			throw Errors::Syntax("Scope should be closed { ... }", line_);
 
 		size_t newI = i + (end_scope - token_iter);
 		auto b = parse_(i + 1, newI);
@@ -694,7 +770,7 @@ namespace ParaCL
 		}
 
 		
-		return std::make_unique<IFKeyW>(std::move(cond_), std::move(scope_), std::move(else_));
+		return std::make_unique<IFKeyW>(std::move(cond_), std::move(scope_), std::move(else_), line_);
 	}
 
 	std::unique_ptr<Node> Parser::WhileS(size_t& i)
@@ -706,12 +782,13 @@ namespace ParaCL
 		++i;
 		std::unique_ptr<Scope> scope_ = scope(i);
 
-		return std::make_unique<WhileKeyW>(std::move(scope_), std::move(cond_));
+		return std::make_unique<WhileKeyW>(std::move(scope_), std::move(cond_), line_);
 	}
+
 
 	std::unique_ptr<Node> Parser::parse_(size_t begin, size_t end)
 	{
-		std::unique_ptr<Node> root_ = std::make_unique<Scope>();
+		std::unique_ptr<Node> root_ = std::make_unique<GlobalScope>();
 		std::unique_ptr<Node>* copy_root = &root_;
 
 		for (size_t i = begin; i < end; ++i)
@@ -736,12 +813,14 @@ namespace ParaCL
 			{
 				++token_iter;
 				++i;
+
 				std::vector<Token>::const_iterator token_iter_b = token_iter;
 
 				child = std::make_unique<PrintKeyW>(lowprior_expr());
 
-				if (!peek().has_value() || token_iter->type != TokenType::ENDCOLOM)
-					throw Errors::Syntax("Scope does not close", NULL);
+				if (!peek().has_value() || peek(true)->type != TokenType::ENDCOLOM)
+					throw Errors::Syntax("Endcolom was skipped", line_);
+
 
 				i += token_iter - token_iter_b;
 
@@ -760,8 +839,8 @@ namespace ParaCL
 				std::vector<Token>::const_iterator token_iter_b = token_iter;
 
 				child = minprior_expr();
-				if (!peek().has_value() || token_iter->type != TokenType::ENDCOLOM)
-					throw Errors::Syntax("Scope does not close", NULL);
+				if (!peek().has_value() || peek(true)->type != TokenType::ENDCOLOM)
+					throw Errors::Syntax("Scope does not close", line_);
 
 				i += token_iter - token_iter_b;
 
@@ -780,6 +859,7 @@ namespace ParaCL
 
 		return std::move(root_);
 	}
+
 
 	Parser::Parser(std::shared_ptr<std::vector<Token>> token_vec)
 		: tokens(token_vec), token_iter(tokens->begin())
