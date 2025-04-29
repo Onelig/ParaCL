@@ -49,10 +49,7 @@ namespace ParaCL
 		bool RHS_m = true;
 		const std::unique_ptr<Node>* LHS_t = &left,
 								   * RHS_t = &right;
-
-		// copy scope elements before new scope
-		std::unordered_map<std::string, int> copyVarInt = VarInt;
-
+		
 		while (*LHS_t && RHS_m)
 		{
 			(*LHS_t)->execute();
@@ -65,17 +62,6 @@ namespace ParaCL
 			else
 				RHS_m = false;
 		}
-
-		// update actually scope with changed value from last scope
-		for (auto& [str, value] : copyVarInt)
-		{
-			std::unordered_map<std::string, int>::const_iterator iter = VarInt.find(str);
-			if (iter != VarInt.end())
-				value = iter->second;
-		}
-
-		// the set of elements that were before last scope
-		VarInt = copyVarInt;
 
 		return std::nullopt;
 	}
@@ -318,10 +304,8 @@ namespace ParaCL
 				result = ++(*element->execute_pointer());
 
 			else
-			{
-				result = *element->execute_pointer();
-				++(*element->execute_pointer());
-			}
+				result = (*element->execute_pointer())++;
+
 			break;
 
 		case TokenType::UNOP_DEC:
@@ -329,10 +313,8 @@ namespace ParaCL
 				result = --(*element->execute_pointer());
 
 			else
-			{
-				result = *element->execute_pointer();
-				--(*element->execute_pointer());
-			}
+				result = (*element->execute_pointer())--;
+
 			break;
 
 		default: throw Errors::Syntax("Incorrect un-operator", line);
@@ -350,11 +332,11 @@ namespace ParaCL
 			switch (tokentype)
 			{
 			case TokenType::UNOP_INC:
-				*result = ++(*element->execute_pointer());
+				result = &(++(*element->execute_pointer()));
 				break;
 
 			case TokenType::UNOP_DEC:
-				*result = --(*element->execute_pointer());
+				result = &(--(*element->execute_pointer()));
 				break;
 
 			default: throw Errors::Syntax("Incorrect un-operator", line);
@@ -423,8 +405,8 @@ namespace ParaCL
 	//
 	// ------------------- PrintKeyW -------------------
 	//
-	PrintKeyW::PrintKeyW(std::unique_ptr<Node>&& print_node, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
-		: str_cout(std::move(print_node)), Node(std::move(left), std::move(right))
+	PrintKeyW::PrintKeyW(std::unique_ptr<Node>&& print_node, unsigned short line, std::unique_ptr<Node>&& left, std::unique_ptr<Node>&& right)
+		: line_(line), str_cout(std::move(print_node)), Node(std::move(left), std::move(right))
 	{ }
 
 	TokenType PrintKeyW::getType() const
@@ -434,7 +416,11 @@ namespace ParaCL
 
 	std::optional<int> PrintKeyW::execute() const
 	{
-		std::cout << str_cout->execute().value() << std::endl;
+		std::optional<int> v = str_cout->execute();
+		if (v == std::nullopt)
+			throw Errors::Syntax("value was not declared in this scope", line_);
+		
+		std::cout << v.value() << std::endl;
 
 		return std::nullopt;
 	}
@@ -573,10 +559,16 @@ namespace ParaCL
 		{
 			get();
 			std::unique_ptr<Node> expr = lowprior_expr();
-			if (!peek().has_value() || peek(true).value().type != TokenType::CLOSE_PAREN)
+			if (!peek().has_value() || peek().value().type != TokenType::CLOSE_PAREN)
 				throw Errors::Syntax("Paren was not closed", line_);
 
 			get();
+
+			if ((typeid(*expr) == typeid(VAR) || typeid(*expr) == typeid(UnOperLv)) && peek() && (peek().value().type == TokenType::UNOP_INC || peek().value().type == TokenType::UNOP_DEC))
+			{
+				expr = std::make_unique<UnOperLv>(peek().value().type, std::unique_ptr<LValue>(static_cast<LValue*>(expr.release())), line_, false);
+				get();
+			}
 			return expr;
 		}
 		else if (token.type == TokenType::GETNUM)
@@ -707,15 +699,15 @@ namespace ParaCL
 	std::unique_ptr<Node> Parser::cond(size_t& i)
 	{
 		// condition from '(' to ')'
-		if (!peek().has_value() || peek(true)->type != TokenType::OPEN_PAREN)
+		if (!peek().has_value() || peek()->type != TokenType::OPEN_PAREN)
 			throw Errors::Syntax("Cannot find condition", line_);
 
 		std::vector<Token>::const_iterator token_iter_b = token_iter;
-		++token_iter; // token_iter == after '('
+		get(); // token_iter == after '('
 		
 		std::unique_ptr<Node> lw_expr = lowprior_expr();
-		if (!peek().has_value() || peek(true)->type != TokenType::CLOSE_PAREN)
-			throw Errors::Syntax("Condition does not close", line_);
+		if (!peek().has_value() || peek()->type != TokenType::CLOSE_PAREN)
+			throw Errors::Syntax("Condition does not correct", line_);
 
 		i += token_iter - token_iter_b;
 
@@ -724,7 +716,7 @@ namespace ParaCL
 
 	std::unique_ptr<Scope> Parser::scope(size_t& i)
 	{
-		if (!peek().has_value() || peek(true)->type != TokenType::LSCOPE)
+		if (!peek().has_value() || peek()->type != TokenType::LSCOPE)
 			throw Errors::Syntax("Scope should be opened { ... }", line_);
 
 		size_t sScope = NULL;
@@ -751,20 +743,20 @@ namespace ParaCL
 
 	std::unique_ptr<Node> Parser::IfElseS(size_t& i)
 	{
-		++token_iter;
+		get();
 		++i;
 		std::unique_ptr<Node> cond_ = cond(i);
-		++token_iter;
+		get();
 		++i;
 		std::unique_ptr<Scope> scope_ = scope(i);
-		++token_iter;
+		get();
 		++i;
 
 		std::unique_ptr<Scope> else_ = nullptr;
 
 		if (i + 1 < tokens->size() && (*tokens)[i + 1].type == TokenType::KEYWORD_ELSE)
 		{
-			++token_iter;
+			get();
 			++i;
 			else_ = scope(i);
 		}
@@ -776,9 +768,9 @@ namespace ParaCL
 	std::unique_ptr<Node> Parser::WhileS(size_t& i)
 	{
 		++i;
-		++token_iter;
+		get();
 		std::unique_ptr<Node> cond_ = cond(i);
-		++token_iter;
+		get();
 		++i;
 		std::unique_ptr<Scope> scope_ = scope(i);
 
@@ -811,14 +803,14 @@ namespace ParaCL
 
 			case TokenType::KEYWORD_PRINT:
 			{
-				++token_iter;
+				get();
 				++i;
 
 				std::vector<Token>::const_iterator token_iter_b = token_iter;
 
-				child = std::make_unique<PrintKeyW>(lowprior_expr());
+				child = std::make_unique<PrintKeyW>(lowprior_expr(), line_);
 
-				if (!peek().has_value() || peek(true)->type != TokenType::ENDCOLOM)
+				if (!peek().has_value() || peek()->type != TokenType::ENDCOLOM)
 					throw Errors::Syntax("Endcolom was skipped", line_);
 
 
@@ -839,8 +831,8 @@ namespace ParaCL
 				std::vector<Token>::const_iterator token_iter_b = token_iter;
 
 				child = minprior_expr();
-				if (!peek().has_value() || peek(true)->type != TokenType::ENDCOLOM)
-					throw Errors::Syntax("Scope does not close", line_);
+				if (!peek().has_value() || peek()->type != TokenType::ENDCOLOM)
+					throw Errors::Syntax("Symb ; was skipped", line_);
 
 				i += token_iter - token_iter_b;
 

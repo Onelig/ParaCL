@@ -165,9 +165,10 @@ namespace ParaCL
     {
     private:
         std::unique_ptr<Node> str_cout;
+        const unsigned short line_; 
 
     public:
-        PrintKeyW(std::unique_ptr<Node>&& print_node, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
+        PrintKeyW(std::unique_ptr<Node>&& print_node, unsigned short line, std::unique_ptr<Node>&& left = nullptr, std::unique_ptr<Node>&& right = nullptr);
         TokenType getType() const override;
         std::optional<int> execute() const override;
     };
@@ -208,7 +209,6 @@ namespace ParaCL
         TokenType getType() const override;
         std::optional<int> execute() const override;
     };
-
 
 
     class Parser final
