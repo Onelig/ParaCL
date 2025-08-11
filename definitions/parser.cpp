@@ -368,13 +368,12 @@ namespace ParaCL
 	std::optional<int> IFKeyW::execute() const
 	{
 		std::optional<int> p = condition->execute();
-
 		if (p.value())
 			scope->execute();
 
 		else if (else_)
 			else_->execute();
-
+			
 		return std::nullopt;
 	}
 
@@ -399,7 +398,10 @@ namespace ParaCL
 		std::optional<int> p = condition->execute();
 
 		while (p.value())
+		{
 			scope->execute();
+			p = condition->execute();
+		}
 
 		return std::nullopt;
 	}
@@ -589,7 +591,6 @@ namespace ParaCL
 		if (token.priority != Priority::OVER && token.type != TokenType::OP_MINUS)
 			throw Errors::Syntax("Missed value", line_);
 
-
 		if (token.type == TokenType::UNOP_DEC || token.type == TokenType::UNOP_INC)
 		{
 			TokenType tt_type = get().value().type;
@@ -705,7 +706,7 @@ namespace ParaCL
 			throw Errors::Syntax("Cannot find condition", line_);
 
 		std::vector<Token>::const_iterator token_iter_b = token_iter;
-		get(); // token_iter == after '('
+		get(); // skip '('
 		
 		std::unique_ptr<Node> lw_expr = lowprior_expr();
 		if (!peek().has_value() || peek()->type != TokenType::CLOSE_PAREN)
@@ -721,7 +722,7 @@ namespace ParaCL
 		if (!peek().has_value() || peek()->type != TokenType::LSCOPE)
 			throw Errors::Syntax("Scope should be opened { ... }", line_);
 
-		size_t sScope = NULL;
+		size_t sScope = 0;
 
 		auto end_scope = std::find_if(token_iter, tokens->cend(), [&sScope](const Token& token)
 			{
@@ -739,6 +740,12 @@ namespace ParaCL
 
 		size_t newI = i + (end_scope - token_iter);
 		auto b = parse_(i + 1, newI);
+
+		get();
+
+		if (!peek().has_value() || peek()->type != TokenType::RSCOPE)
+			throw Errors::Syntax("Scope should be closed { ... }", line_);
+			
 		i = newI;
 		return std::make_unique<Scope>(std::move(b->left), std::move(b->right));
 	}
@@ -756,7 +763,7 @@ namespace ParaCL
 
 		std::unique_ptr<Scope> else_ = nullptr;
 
-		if (i + 1 < tokens->size() && (*tokens)[i + 1].type == TokenType::KEYWORD_ELSE)
+		if (peek().has_value() && peek()->type == TokenType::KEYWORD_ELSE)
 		{
 			get();
 			++i;

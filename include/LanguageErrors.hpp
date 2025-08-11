@@ -11,7 +11,7 @@ namespace ParaCL
 		{
 		public:
 			explicit Syntax(const std::string& message, unsigned short line);
-			char const* what() const override;
+			char const* what() const noexcept override;
 
 		private:
 			std::string message;
@@ -21,7 +21,7 @@ namespace ParaCL
 		{
 		public:
 			explicit Type(const std::string& message, unsigned short line);
-			char const* what() const override;
+			char const* what() const noexcept override;
 
 		private:
 			std::string message;
@@ -31,7 +31,7 @@ namespace ParaCL
 		{
 		public:
 			explicit Runtime(const std::string& message, unsigned short line);
-			char const* what() const override;
+			char const* what() const noexcept override;
 
 		private:
 			std::string message;

@@ -10,11 +10,11 @@ namespace ParaCL
 		Syntax::Syntax(const std::string& message, unsigned short line)
 			: message("ParaCL error | Syntax error | Line ")
 		{
-			this->message += std::to_string(line) + "\n";
-			this->message += "Detals: " + message + '.';
+			this->message += std::to_string(line - 1) + "\n";
+			this->message += "Detals: " + message + '.' + "\n";
 		}
 
-		char const* Syntax::what() const
+		char const* Syntax::what() const noexcept
 		{
 			return message.c_str();
 		}
@@ -26,11 +26,11 @@ namespace ParaCL
 		Type::Type(const std::string& message, unsigned short line)
 			: message("ParaCL error | Type error | Line ")
 		{
-			this->message += std::to_string(line) + "\n";
-			this->message += "Detals: " + message + '.';
+			this->message += std::to_string(line - 1) + "\n";
+			this->message += "Detals: " + message + '.' + "\n";
 		}
 
-		char const* Type::what() const
+		char const* Type::what() const noexcept
 		{
 			return message.c_str();
 		}
@@ -42,11 +42,11 @@ namespace ParaCL
 		Runtime::Runtime(const std::string& message, unsigned short line)
 			: message("ParaCL error | Runtime error | Line ")
 		{
-			this->message += std::to_string(line) + "\n";
-			this->message += "Detals: " + message + '.';
+			this->message += std::to_string(line - 1) + "\n";
+			this->message += "Detals: " + message + '.' + "\n";
 		}
 
-		char const* Runtime::what() const
+		char const* Runtime::what() const noexcept
 		{
 			return message.c_str();
 		}
