@@ -263,7 +263,7 @@ namespace ParaCL
 
 	std::optional<int> UnOperRv::execute() const
 	{
-		int result = NULL;
+		int result = 0;
 
 		switch (tokentype)
 		{
@@ -297,7 +297,7 @@ namespace ParaCL
 
 	std::optional<int> UnOperLv::execute() const
 	{
-		int result = NULL;
+		int result = 0;
 
 		switch (tokentype)
 		{
@@ -870,7 +870,7 @@ namespace ParaCL
 
 	void Parser::parse()
 	{
-		root = parse_(NULL, tokens->size());
+		root = parse_(0, tokens->size());
 	}
 
 	std::unique_ptr<Node> Parser::getAST()

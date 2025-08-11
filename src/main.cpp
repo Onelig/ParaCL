@@ -24,7 +24,7 @@ int main()
 	signal(SIGINT, &sighandler);
 	std::string code;
 	
-	char type_read = NULL;
+	char type_read;
 #ifdef _WIN32
 	std::cout << "Choose option(press key):" << std::endl;
 #else
