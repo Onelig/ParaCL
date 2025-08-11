@@ -193,6 +193,8 @@ namespace ParaCL
 		case TokenType::OP_NEQUAL:
 			result = LHS_int != RHS_int;
 			break;
+		
+			
 
 		default:
 			throw Errors::Syntax("Incorrect binary operator", this->line);

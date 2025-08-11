@@ -89,7 +89,7 @@ namespace ParaCL
 				case '-':
 					if (next_i_ex && code[i + 1] == '=')
 					{
-						tokens->emplace_back(Token{ TokenType::OP_MINUS_SET, line, Priority::MAX });
+						tokens->emplace_back(Token{ TokenType::OP_MINUS_SET, line, Priority::MIN });
 						++i;
 					}
 					else if (next_i_ex && code[i + 1] == '-')
@@ -104,7 +104,7 @@ namespace ParaCL
 				case '*':
 					if (next_i_ex && code[i + 1] == '=')
 					{
-						tokens->emplace_back(Token{ TokenType::OP_MULT_SET, line, Priority::MAX });
+						tokens->emplace_back(Token{ TokenType::OP_MULT_SET, line, Priority::MIN });
 						++i;
 					}
 					else
@@ -114,7 +114,7 @@ namespace ParaCL
 				case '/':
 					if (next_i_ex && code[i + 1] == '=')
 					{
-						tokens->emplace_back(Token{ TokenType::OP_DIV_SET, line, Priority::MAX });
+						tokens->emplace_back(Token{ TokenType::OP_DIV_SET, line, Priority::MIN });
 						++i;
 					}
 					else if (next_i_ex && code[i + 1] == '/')
@@ -152,7 +152,7 @@ namespace ParaCL
 				case '%':
 					if (next_i_ex && code[i + 1] == '=')
 					{
-						tokens->emplace_back(Token{	TokenType::OP_REM_SET, line, Priority::MAX });
+						tokens->emplace_back(Token{	TokenType::OP_REM_SET, line, Priority::MIN });
 						++i;
 					}
 					else
