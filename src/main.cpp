@@ -57,6 +57,7 @@ int main()
 		std::cin >> type_read;
 	};
 	system("clear");
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 #endif
 	if (type_read == '1')
 	{
@@ -80,7 +81,7 @@ int main()
 		{
 			std::cout << "Incorrect path. Enter path: ";
 			std::getline(std::cin, path);
-			f.open(path);
+			f = std::ifstream(path);
 		}
 		
 		while (std::getline(f, path))
