@@ -20,7 +20,6 @@ void sighandler(int sig)
 
 int main()
 {
-	std::unique_ptr<int> obj(new int(2));
 	signal(SIGINT, &sighandler);
 	std::string code;
 	

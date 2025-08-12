@@ -509,7 +509,7 @@ namespace ParaCL
 		int tvalue;
 		ClearBuffer();
 		std::cin >> tvalue;
-		if (!std::cin.good())
+		if (std::cin.fail())
 			throw Errors::Runtime("Input failure", line);
 
 		return tvalue;
@@ -866,7 +866,9 @@ namespace ParaCL
 
 	Parser::Parser(std::shared_ptr<std::vector<Token>> token_vec)
 		: tokens(token_vec), token_iter(tokens->begin())
-	{ }
+	{
+		VarInt.clear(); 
+	}
 
 	void Parser::parse()
 	{

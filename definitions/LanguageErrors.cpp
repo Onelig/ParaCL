@@ -10,7 +10,7 @@ namespace ParaCL
 		Syntax::Syntax(const std::string& message, unsigned short line)
 			: message("ParaCL error | Syntax error | Line ")
 		{
-			this->message += std::to_string(line - 1) + "\n";
+			this->message += std::to_string(line) + "\n";
 			this->message += "Detals: " + message + '.' + "\n";
 		}
 
@@ -26,7 +26,7 @@ namespace ParaCL
 		Type::Type(const std::string& message, unsigned short line)
 			: message("ParaCL error | Type error | Line ")
 		{
-			this->message += std::to_string(line - 1) + "\n";
+			this->message += std::to_string(line) + "\n";
 			this->message += "Detals: " + message + '.' + "\n";
 		}
 
@@ -42,7 +42,7 @@ namespace ParaCL
 		Runtime::Runtime(const std::string& message, unsigned short line)
 			: message("ParaCL error | Runtime error | Line ")
 		{
-			this->message += std::to_string(line - 1) + "\n";
+			this->message += std::to_string(line) + "\n";
 			this->message += "Detals: " + message + '.' + "\n";
 		}
 

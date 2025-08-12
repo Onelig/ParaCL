@@ -1,6 +1,7 @@
 #include "simulator.hpp"
 #include <gtest/gtest.h>
 #include <sstream>
+#include "LanguageErrors.hpp"
 
 class SimulatorTest : public ::testing::Test
 {
@@ -174,4 +175,53 @@ TEST_F(SimulatorTest, Combinedtest)
     std::cout.rdbuf(old_buf);
 
     ASSERT_EQ(ss.str(), "103\n105\n107\n");
+}
+
+TEST_F(SimulatorTest, GetNumTestError)
+{
+    std::string code("p = ?; print p;");
+    
+    ASSERT_NO_THROW(simulator_.set(code));
+
+    //fot std::cout 
+    std::stringstream ss;
+    std::streambuf* old_buf = std::cout.rdbuf(ss.rdbuf());
+
+    // for std::cin
+    std::streambuf* origCin = std::cin.rdbuf();
+    std::istringstream fakeInput("89182");
+
+    std::cin.rdbuf(fakeInput.rdbuf());
+
+    ASSERT_NO_THROW(simulator_.run());
+
+    std::cout.rdbuf(old_buf);
+    std::cin.rdbuf(origCin);
+
+    ASSERT_EQ(ss.str(), "89182\n");
+}
+
+
+TEST_F(SimulatorTest, IncTypeTestError)
+{
+    std::string code("int p = 100;");
+
+    ASSERT_THROW(simulator_.set(code), ParaCL::Errors::Syntax);
+}
+
+
+TEST_F(SimulatorTest, OutOfScopeTestError)
+{
+    std::string code("print a;");
+
+    ASSERT_NO_THROW(simulator_.set(code));
+    ASSERT_THROW(simulator_.run(), ParaCL::Errors::Syntax);
+}
+
+
+TEST_F(SimulatorTest, SkipRParenTestError)
+{
+    std::string code("if (100 == 100 { print 100; }");
+
+    ASSERT_THROW(simulator_.set(code), ParaCL::Errors::Syntax);
 }
