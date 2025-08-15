@@ -3,6 +3,8 @@
 
 namespace ParaCL
 {
+	extern std::unordered_map<std::string, int> VarInt; 
+
 	Simulator::Simulator(const std::string& code)
 	{
 		Lexer lexer(code);
@@ -31,5 +33,6 @@ namespace ParaCL
 	void Simulator::run()
 	{
 		root->execute();
+		VarInt.clear(); 
 	}
 }

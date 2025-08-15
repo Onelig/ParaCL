@@ -866,9 +866,7 @@ namespace ParaCL
 
 	Parser::Parser(std::shared_ptr<std::vector<Token>> token_vec)
 		: tokens(token_vec), token_iter(tokens->begin())
-	{
-		VarInt.clear(); 
-	}
+	{ }
 
 	void Parser::parse()
 	{
